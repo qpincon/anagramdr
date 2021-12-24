@@ -47,6 +47,3 @@ with open('tagging_stats.jsonl', 'w') as f:
         s = json.dumps(obj).encode('utf-8')
         s = s.decode() + '\n'
         f.write(s)
-
-# with open('words.json', 'w') as f:
-#     json.dump(f, mappings)

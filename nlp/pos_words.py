@@ -1,5 +1,24 @@
 import spacy
-import json, pickle
+import json
+
+def read_jsonl(path):
+    mappings = {}
+    with open(path, 'r') as f:
+        for line in f:
+            word_def = json.loads(line)
+            word = list(word_def.keys())[0]
+            attrs = list(word_def.values())[0]
+            mappings[word] = attrs
+    return mappings
+
+def write_jsonl(path, words):
+    with open(path, 'w') as f:
+        for key, val in words.items():
+            obj = {'word': key}
+            obj.update(val)
+            s = json.dumps(obj, ensure_ascii=False).encode('utf-8')
+            s = s.decode() + '\n'
+            f.write(s)
 
 doc_path = './fra_mixed_2009_30K-sentences.txt'
 vocab = list(spacy.load("fr_core_news_sm").vocab.strings)
@@ -30,10 +49,4 @@ for word in vocab:
         'morph': token.morph.to_dict(),
     }
 
-with open('words_tagging.jsonl', 'w') as f:
-    for key, val in words.items():
-        s = json.dumps({key: val}, ensure_ascii=False).encode('utf-8')
-        s = s.decode() + '\n'
-        f.write(s)
-
-
+write_jsonl('words.jsonl', words)
