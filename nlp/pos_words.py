@@ -1,32 +1,30 @@
-import spacy
-import json
+import json, spacy
+import pandas as pd
+from tqdm import tqdm
 
 def read_jsonl(path):
-    mappings = {}
+    words = []
     with open(path, 'r') as f:
         for line in f:
-            word_def = json.loads(line)
-            word = list(word_def.keys())[0]
-            attrs = list(word_def.values())[0]
-            mappings[word] = attrs
-    return mappings
+            words.append(json.loads(line))
+    return words
 
 def write_jsonl(path, words):
     with open(path, 'w') as f:
-        for key, val in words.items():
-            obj = {'word': key}
-            obj.update(val)
-            s = json.dumps(obj, ensure_ascii=False).encode('utf-8')
+        for word in words:
+            s = json.dumps(word, ensure_ascii=False).encode('utf-8')
             s = s.decode() + '\n'
             f.write(s)
 
-doc_path = './fra_mixed_2009_30K-sentences.txt'
-vocab = list(spacy.load("fr_core_news_sm").vocab.strings)
+# vocab = list(spacy.load("fr_core_news_sm").vocab.strings)
+vocab = set(pd.read_csv('lexique.tsv', sep='\t')["ortho"])
 nlp = spacy.load("fr_dep_news_trf")
 
-allowed_chars = set([char for char in "azertyuiopqsdfghjklmwxcvbn'àâäéèëîïôö-ç"])
-
+allowed_chars = set([char for char in "azertyuiopqsdfghjklmwxcvbn'àÀâÂäÄéèÈëÉîÎïôÔöÖçÇ ,-"])
+one_letter_words_letters = set([c for c in 'aàyô'])
 def is_allowed(word):
+    if type(word) is not str: return False
+    if len(word) == 1 and (word[0] not in one_letter_words_letters): return False
     word = word.lower()
     if not all([char in allowed_chars for char in word]): return False
     count = 0
@@ -41,12 +39,18 @@ print('vocab lenght before', len(vocab))
 vocab = list(filter(is_allowed, vocab))
 print('vocab lenght after', len(vocab))
 
-words = {}
-for word in vocab:
+words = []
+for word in tqdm(sorted(vocab, key=lambda w: (len(w), w))):
     token = nlp(word)[0]
-    words[token.text] = {
+    words.append({
+        'word': word,
         'pos': token.pos_,
         'morph': token.morph.to_dict(),
-    }
+    })
 
-write_jsonl('words.jsonl', words)
+def post_process(words):
+    words = list(filter(lambda w: is_allowed(w['word']), words))
+    words = sorted(words, key=lambda w: (len(w['word']), w['word']))
+    return words
+
+write_jsonl('words_v2.jsonl', words)
