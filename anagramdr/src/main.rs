@@ -10,7 +10,7 @@ use std::fmt;
 
 const MORPH_TYPES_LEN : usize = 3;
 const MORPH_TYPES : [&'static str; MORPH_TYPES_LEN] = ["Gender", "Number", "Person"];
-const CHARS_TO_REMOVES : &'static str = " ,-"; // chars to remove for porcessing, but keep for storing words
+const CHARS_TO_REMOVES : &'static str = " ,-"; // chars to remove for processing, but keep for storing words
 const ALLOWED_CHARS : &'static str = "aAàÀâÂäÄbBcCçÇdDeEéÉèÈëËfFgGhHiIîÎïÏjJkKlLmMnNoOôÔöÖpPqQrRsStTuUvVwWxXyYz ',-"; // must contain CHARS_TO_REMOVES
 type Letters = Vec<u8>;
 
@@ -60,14 +60,27 @@ struct Word {
 
 
 struct Index {
+    /** Character to position in "chars" */
     char_mapping: HashMap<char, u8>,
+    /** All characters in index, from 0 to ALLOWED_CHARS length */
     chars: Vec<char>,
-    original_letters: Letters,  // contains the word as found in the entry corpus   
-    sorted_letters: Letters,    // contains sorted letters of each word, punctuation removed and to lowercase
+    /** 
+     * Contains the word as found in the entry corpus, as positions in "chars". If vocab is ["bonjour", "toi"] it will contain
+     * bonjourtoi (as indexes)
+     */
+    original_letters: Letters,
+    /**
+     * Contains sorted letters of each word, punctuation removed and to lowercase, i.e "Très-étrange" will be
+     * tresetrange (as indexes)
+     */
+    sorted_letters: Letters,
+    /** Character to position in "chars" to remove */ 
     chars_to_remove: HashSet<u8>,
-    uppercase_mapping: HashMap<u8, u8>, // uppercase variant to lowercase
+    /** Uppercase variant to lowercase */
+    uppercase_mapping: HashMap<u8, u8>,
     pos_tags: Vec<String>,
     morph_tags: [Vec<String>; MORPH_TYPES_LEN],
+    /** Contain all the words of the entry vocab */
     word_defs: Vec<Word>,
     mean_word_size: f32,
 }
@@ -336,8 +349,9 @@ impl Index {
         }
         println!("matched {} words:", matching.matched.len());
         for word in &matching.matched {
-            println!("{} ", self.u8_to_str(&self.original_letters[word.letters_original_range.start as usize..word.letters_original_range.end as usize]));
+            print!("{} ", self.u8_to_str(&self.original_letters[word.letters_original_range.start as usize..word.letters_original_range.end as usize]));
         }
+        println!();
     }
 
 }
@@ -346,13 +360,16 @@ impl Index {
 impl fmt::Display for Index {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "{} letters ({} sorted), {} words", self.original_letters.len(), self.sorted_letters.len(), self.word_defs.len())?;
-        writeln!(f, "Mean letter count per word: {}", self.mean_word_size)?;
         for word in &self.word_defs {
             let original = &self.original_letters[word.letters_original_range.start as usize..word.letters_original_range.end as usize];
             let sorted = &self.sorted_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
             writeln!(f, "{}, sorted : {}", self.u8_to_str(original), self.u8_to_str(sorted))?
         }
+        writeln!(f, "{} letters ({} sorted), {} words", self.original_letters.len(), self.sorted_letters.len(), self.word_defs.len())?;
+        // for (key, val) in self.uppercase_mapping.iter() {
+        //     writeln!(f, "{}: {}", self.chars[*key as usize], self.chars[*val as usize]);
+        // }
+        writeln!(f, "Mean letter count per word: {}", self.mean_word_size)?;
         Ok(())
     }
 }
@@ -377,7 +394,7 @@ fn main() {
     println!("Size of matching: {}", mem::size_of::<Matching>());
     println!("Size of Letters: {}", mem::size_of::<Letters>());
     let index = Index::new();
-    // println!("{}", index);
+    println!("{}", index);
     // let mut index = index;
     // index.associate(&letters, ranges);
    

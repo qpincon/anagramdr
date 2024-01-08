@@ -17,14 +17,20 @@ def write_jsonl(path, words):
             f.write(s)
 
 # vocab = list(spacy.load("fr_core_news_sm").vocab.strings)
-vocab = set(pd.read_csv('lexique.tsv', sep='\t')["ortho"])
+# The French Lexicon Project: https://osf.io/f8kc4/
+vocab = set(pd.read_excel('lexicon.xls')["item"])
 nlp = spacy.load("fr_dep_news_trf")
+# print(nlp.pipe_names)
+# other_pipes = [pipe for pipe in nlp.pipe_names if pipe not in [ "transformer", "parser", "tagger", "morphologizer", "attribute_ruler"]]
+# nlp.disable_pipes(*other_pipes)
 
 allowed_chars = set([char for char in "azertyuiopqsdfghjklmwxcvbn'àÀâÂäÄéèÈëÉîÎïôÔöÖçÇ ,-"])
 one_letter_words_letters = set([c for c in 'aàyô'])
 def is_allowed(word):
     if type(word) is not str: return False
     if len(word) == 1 and (word[0] not in one_letter_words_letters): return False
+    # if word[0] == '-' or word[-1] == '-': return False
+    # if len(word) > 19 and word.count('-') > 1 and any(x.isupper() for x in word): return False
     word = word.lower()
     if not all([char in allowed_chars for char in word]): return False
     count = 0
