@@ -12,13 +12,17 @@ const MORPH_TYPES_LEN : usize = 3;
 const MORPH_TYPES : [&'static str; MORPH_TYPES_LEN] = ["Gender", "Number", "Person"];
 const CHARS_TO_REMOVES : &'static str = " ,-"; // chars to remove for processing, but keep for storing words
 const ALLOWED_CHARS : &'static str = "aAàÀâÂäÄbBcCçÇdDeEéÉèÈëËfFgGhHiIîÎïÏjJkKlLmMnNoOôÔöÖpPqQrRsStTuUvVwWxXyYz ',-"; // must contain CHARS_TO_REMOVES
+
+const POS_TAGS_LEN : usize = 18;
+// https://universaldependencies.org/u/pos/
+const POS_TAGS : [&'static str; POS_TAGS_LEN] = ["ADJ","ADP","PUNC","ADV","AUX","SYM","INTJ","CCONJ","X","NOUN","DET","PROPN","NUM","VERB","PART","PRON","SCONJ", "PUNCT"];
 type Letters = Vec<u8>;
 
 fn find_or_insert<T> (list: &mut Vec<T>, elem: T) -> usize 
         where T: Clone + PartialOrd
 {
     match list.iter().position(|e| e == &elem) {
-        Some(pos) => (pos + 1),
+        Some(pos) => pos + 1,
         None => {
             list.push(elem.clone());
             list.len()
@@ -78,7 +82,6 @@ struct Index {
     chars_to_remove: HashSet<u8>,
     /** Uppercase variant to lowercase */
     uppercase_mapping: HashMap<u8, u8>,
-    pos_tags: Vec<String>,
     morph_tags: [Vec<String>; MORPH_TYPES_LEN],
     /** Contain all the words of the entry vocab */
     word_defs: Vec<Word>,
@@ -96,7 +99,6 @@ impl Index {
             uppercase_mapping: HashMap::new(),
             morph_tags: Default::default(),
             word_defs: vec![],
-            pos_tags: vec![],
             sorted_letters: vec![],
             original_letters: vec![],
             mean_word_size: 0.0,
@@ -115,13 +117,13 @@ impl Index {
         CHARS_TO_REMOVES.chars().for_each(|c| {
             index.chars_to_remove.insert(*index.char_mapping.get(&c).unwrap());
         });
-        let lines = read_lines("data/words.jsonl").expect("Words file not found");
+        let lines: io::Lines<io::BufReader<File>> = read_lines("data/words.jsonl").expect("Words file not found");
         for line in lines {
             if let Ok(word_def) = line {
                 let word_def : Value = serde_json::from_str(&word_def).unwrap();
                 let word = word_def["word"].as_str().unwrap();
                 let pos_tag = word_def["pos"].as_str().unwrap();
-                let pos_tag_index = find_or_insert(&mut index.pos_tags, String::from(pos_tag));
+                let pos_tag_index = POS_TAGS.iter().position(|&pos| pos == pos_tag).unwrap();
                 let morphology = Index::get_morph_tags(&mut index.morph_tags, word_def["morph"].as_object().unwrap());
                 let lengths = (index.original_letters.len(), index.sorted_letters.len());
                 if !word.chars().all(|x| index.char_mapping.contains_key(&x)) {
@@ -221,115 +223,64 @@ impl Index {
         encoded
     }
 
-    fn find_anagrams(&self, input:  String) {
-        let before = Instant::now();
-        let mut nb_iter = 0;
-        // let test = "aeinort";
-        // input.retain(|c| !c.is_whitespace());
-        let sorted_input = self.process_input(input);
-        let mut candidates : Vec<Matching> = vec![];
-        // let mut found : Vec<Matching> = vec![];
-        for word in &self.word_defs {
-            let searched_word_letters = &self.sorted_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
-            let word_len = word.letters_sorted_range.len();
-            nb_iter += 1; 
-            let before = candidates.len();
-            
-            // remove candidates that do not have enough remaining letters
-            candidates.retain(|c| {
-                c.letter_pool.len() >= word_len || c.letter_pool.len() == 0
-                // if c.letter_pool.len() >= word_len || c.letter_pool.len() == 0 { return true; }
-                // else {
-                //     println!("Removed: letter pool = {}, word = {}", self.u8_to_str(&c.letter_pool), self.u8_to_str(&searched_word_letters));
-                //     return false;
-                // }
-            });
-            // if candidates.len() < before {
-            //     println!("Removed {} candidates, currently {} candidates ({} letters)", before - candidates.len(), candidates.len(),word_len);
-            // }
-
-            // if self.u8_to_str(&searched_word_letters) == test {
-            //     for cand in &candidates {
-            //         self.print_matching(&cand);
-            //     }
-            // }
-            let nb_cand = candidates.len();
-            for cand_index in 0..nb_cand {
-                let candidate = &candidates[cand_index];
-                nb_iter += 1;
-                if candidate.letter_pool.len() == 0 { continue; }
-                let pool_count_if_match = candidate.letter_pool.len() - word_len;
-                let check_pass = (pool_count_if_match == 0 || pool_count_if_match >= word_len) && Index::check_contains_all_letters(&candidate.letter_pool, searched_word_letters);
-                // if self.u8_to_str(&searched_word_letters) == test { 
-                //     println!("Pool: {}, {}, {}, {}" , self.u8_to_str(&candidate.letter_pool), pool_count_if_match, pool_count_if_match >= word_len, Index::check_contains_all_letters(&candidate.letter_pool, searched_word_letters));
-                // }
-                if check_pass {
-                    let mut new_cand = candidate.clone();
-                    // remove letters from original pool
-                    remove_elems(&mut new_cand.letter_pool, searched_word_letters);
-                    // println!("New from cand letter pool {}, previous = {}, word = {}", self.u8_to_str(&new_cand.letter_pool), self.u8_to_str(&candidate.letter_pool), self.u8_to_str(&searched_word_letters));
-                    new_cand.matched.push(&word);
-                    candidates.push(new_cand);
-                }
-            }
-            if word_len > searched_word_letters.len() { continue;}
-            // add new candidate if match
-            // let pool_count_if_match = searched_word_letters.len() - word_len;
-            // if (pool_count_if_match == 0 || pool_count_if_match >= word_len) && Index::check_contains_all_letters(&searched_word_letters, searched_word_letters) {
-            if Index::check_contains_all_letters(&sorted_input, searched_word_letters) {
-                // remove letters from original pool
-                let remaining_letters = Index::new_vec_removed_letters(&sorted_input, searched_word_letters);
-                let new_candidate = Matching { letter_pool: remaining_letters, matched: vec![word]};
-                // println!("New cand letter pool {}, word = {}", self.u8_to_str(&new_candidate.letter_pool), self.u8_to_str(&searched_word_letters));
-                candidates.push(new_candidate);
-            }
-        }
-        println!("Found {} anagrams", candidates.iter().filter(|c| c.is_complete()).count());
-        // for cand in &candidates {
-        //     if cand.letter_pool.len() == 0 {
-        //         self.print_matching(cand);
-        //     }
-        // }
-        println!("{} candidate group", candidates.len());
-        println!("{} iterations", nb_iter);
-        println!("Elapsed time: {:.2?}", before.elapsed());
-    }
-
     fn find_anagrams_reverse(&self, input: String) {
         let before = Instant::now();
+        let max_cand_to_find = 100;
         let mut nb_iter = 0;
+        let mut nb_found = 0;
         let sorted_input = self.process_input(input);
+        let input_length = sorted_input.len();
         let mut candidates : Vec<Matching> = vec![];
         let mut index = 0;
+        let mut nb_added_cand_scratch = 0;
+        let mut nb_added_cand_cand = 0;
+        let mut enough_found = false;
         println!("letters = {}",  self.u8_to_str(&sorted_input));
         for word in self.word_defs.iter().rev() {
             let searched_word_letters = &self.sorted_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
+            let cur_word_length = word.letters_sorted_range.end - word.letters_sorted_range.start;
             if index % 200 == 0 {
-                println!("{} / {}, {} candidates, word = {}", index, self.word_defs.len(), candidates.len(), self.u8_to_str(&searched_word_letters));
+                let searched_word_original = &self.original_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
+                println!("Added candidates {} (scratch) {} (cloned), {} found", nb_added_cand_scratch, nb_added_cand_cand, nb_found);
+                nb_added_cand_scratch = 0;
+                nb_added_cand_cand = 0;
+                println!("{} / {}, {} candidates, word = {}", index, self.word_defs.len(), candidates.len(), self.u8_to_str(&searched_word_original));
             }
             index += 1;
-            // let word_len = word.letters_sorted_range.len();
             nb_iter += 1;
             let nb_cand = candidates.len();
+            /* Search new candidates among current ones */
             for cand_index in 0..nb_cand {
                 let candidate = &candidates[cand_index];
                 nb_iter += 1;
                 if candidate.letter_pool.len() == 0 { continue; }
+                /* Only add new if the potential total of words is small enough relative to input size  */
+                let should_add_new = cur_word_length > 4 || (candidate.min_nb_words(cur_word_length) / input_length as f32) < 0.3;
+                if !should_add_new { continue; }
                 let check_pass = Index::check_contains_all_letters(&candidate.letter_pool, searched_word_letters);
+                /* Create new candidate with the matching letters removed from the pool */
                 if check_pass {
+                    nb_added_cand_cand += 1;
                     let mut new_cand = candidate.clone();
-                    // remove letters from original pool
                     remove_elems(&mut new_cand.letter_pool, searched_word_letters);
                     new_cand.matched.push(&word);
+                    if new_cand.is_complete() { nb_found+= 1; }
+                    if nb_found == max_cand_to_find {
+                        enough_found = true;
+                        break;
+                    }
                     candidates.push(new_cand);
                 }
             }
-            // add new candidate if match
-            if Index::check_contains_all_letters(&sorted_input, searched_word_letters) {
+            if enough_found { break; }
+            let should_add_new = cur_word_length > 4 || (cur_word_length as f32 / input_length as f32) > 0.2;
+            /* Find new candidates from scratch */
+            if should_add_new && Index::check_contains_all_letters(&sorted_input, searched_word_letters) {
                 // remove letters from original pool
                 let remaining_letters = Index::new_vec_removed_letters(&sorted_input, searched_word_letters);
                 let new_candidate = Matching { letter_pool: remaining_letters, matched: vec![word]};
                 candidates.push(new_candidate);
+                nb_added_cand_scratch += 1;
             }
         }
         for cand in &candidates {
@@ -337,6 +288,7 @@ impl Index {
                 self.print_matching(cand);
             }
         }
+        print!("Added candidates {} (scratch) {} (cloned) ", nb_added_cand_scratch, nb_added_cand_cand);
         println!("Found {} anagrams", candidates.iter().filter(|c| c.is_complete()).count());
         println!("{} candidate group", candidates.len());
         println!("{} iterations", nb_iter);
@@ -355,7 +307,6 @@ impl Index {
     }
 
 }
-
 
 impl fmt::Display for Index {
     // This trait requires `fmt` with this exact signature.
@@ -384,6 +335,10 @@ struct Matching<'a> {
 impl<'a> Matching<'a> {
     fn is_complete(&self) -> bool {
         self.letter_pool.len() == 0
+    }
+
+    fn min_nb_words(&self, word_length: u32) -> f32 {
+        (self.matched.len() as f32) + (self.letter_pool.len() as f32 / word_length as f32).ceil()
     }
 }
 
