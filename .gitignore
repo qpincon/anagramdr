@@ -1,3 +1,4 @@
 nlp/*.json
 nlp/*.txt
 nlp/*.pickle
+.venv
