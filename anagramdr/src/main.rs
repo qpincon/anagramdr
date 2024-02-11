@@ -2,13 +2,15 @@ use std::time::Instant;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
-use serde_json::{de, Value};
+use serde_json::Value;
+use warp::reply::Json;
 use std::collections::{HashMap, HashSet};
 use std::str::{self, FromStr};
 use std::ops::Range;
 use std::fmt;
 use strum_macros::EnumString;
 use itertools::Itertools;
+use warp::Filter;
 
 const CHARS_TO_REMOVE : &'static str = " ,-"; // chars to remove for processing, but keep for storing words
 const ALLOWED_CHARS : &'static str = "aAàÀâÂäÄbBcCçÇdDeEéÉèÈêÊëËfFgGhHiIîÎïÏjJkKlLmMnNoOôÔöÖpPqQrRsStTuûüUvVwWxXyYzZ ',-"; // must contain CHARS_TO_REMOVE
@@ -89,16 +91,8 @@ struct PosMorph {
     morph: Morph
 }
 
-#[derive(PartialOrd, Ord, PartialEq, Eq, Debug)]
-struct PosMorph2Gram {
-    first: PosMorph,
-    second: PosMorph,
-    nb_occ: u32
-}
-
-
 type Letters = Vec<u8>;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Word {
     letters_sorted_range: Range<u32>,
     letters_original_range: Range<u32>,
@@ -106,18 +100,6 @@ struct Word {
     morph_tags: Vec<Morph>,
 }
 
-
-fn find_or_insert<T> (list: &mut Vec<T>, elem: T) -> usize 
-        where T: Clone + PartialOrd
-{
-    match list.iter().position(|e| e == &elem) {
-        Some(pos) => pos + 1,
-        None => {
-            list.push(elem.clone());
-            list.len()
-        }
-    }
-}
 
 // remove all elements from original that are in matched_words
 fn remove_elems<T>(original: &mut Vec<T>, matched_word: &[T]) where T: PartialOrd {
@@ -143,6 +125,7 @@ where P: AsRef<Path>, {
 }
 
 
+#[derive(Clone)]
 struct Index {
     /** Character to position in "chars" */
     char_mapping: HashMap<char, u8>,
@@ -165,7 +148,6 @@ struct Index {
     /** Contain all the words of the entry vocab */
     word_defs: Vec<Word>,
     mean_word_size: f32,
-    // tagging_stats: Vec<PosMorph2Gram>,
     tagging_stats: HashMap<PosMorph, HashMap<PosMorph, f32>>,
     tagging_stats_total: u64,
 }
@@ -185,7 +167,6 @@ impl Index {
             mean_word_size: 0.0,
             tagging_stats: HashMap::new(),
             tagging_stats_total: 0,
-            // tagging_stats: vec![]
         };
         ALLOWED_CHARS.chars().for_each(|c| {
             index.char_mapping.insert(c, index.chars.len() as u8);
@@ -322,9 +303,8 @@ impl Index {
         encoded
     }
 
-    fn find_anagrams_reverse(&self, input: String) {
-        let before = Instant::now();
-        let max_cand_to_find = 300;
+    fn find_anagrams_reverse(&self, input: String) -> Vec<String> {
+        let max_cand_to_find = 1000;
         let mut nb_iter = 0;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
@@ -354,7 +334,9 @@ impl Index {
                 nb_iter += 1;
                 if candidate.letter_pool.len() == 0 { continue; }
                 /* Only add new if the potential total of words is small enough relative to input size  */
-                let should_add_new = cur_word_length > 4 || (candidate.min_nb_words(cur_word_length) / input_length as f32) < 0.3;
+                // let should_add_new = true;
+                let should_add_new = input_length < 20 || candidates.len() < 300 
+                    || cur_word_length > 4 || (candidate.min_nb_words(cur_word_length) / input_length as f32) < 0.3;
                 if !should_add_new { continue; }
                 let check_pass = Index::check_contains_all_letters(&candidate.letter_pool, searched_word_letters);
                 /* Create new candidate with the matching letters removed from the pool */
@@ -375,7 +357,8 @@ impl Index {
                 }
             }
             if enough_found { break; }
-            let should_add_new = cur_word_length > 4 || (cur_word_length as f32 / input_length as f32) > 0.2;
+            let should_add_new = input_length < 20 || candidates.len() < 300
+                || cur_word_length > 4 || (cur_word_length as f32 / input_length as f32) > 0.2;
             /* Find new candidates from scratch */
             if should_add_new && Index::check_contains_all_letters(&sorted_input, searched_word_letters) {
                 // remove letters from original pool
@@ -389,17 +372,29 @@ impl Index {
                 nb_added_cand_scratch += 1;
             }
         }
-        candidates.sort_by(|a, b| b.best_perm_score.partial_cmp(&a.best_perm_score).unwrap());
-        for cand in &candidates {
-            if cand.letter_pool.len() == 0 {
-                self.print_matching(cand);
-            }
-        }
-        println!("Added candidates {} (scratch) {} (cloned) ", nb_added_cand_scratch, nb_added_cand_cand);
-        println!("Found {} anagrams", candidates.iter().filter(|c| c.is_complete()).count());
         println!("{} candidate group", candidates.len());
+        let mut completed : Vec<Matching> = candidates.into_iter().filter(|matched| matched.letter_pool.len() == 0).collect();
+        completed.sort_by(|a, b| {
+            // println!("{:?}, {:?}", a, b);
+            b.best_perm_score.partial_cmp(&a.best_perm_score).unwrap()
+        });
+        let reconstituted: Vec<String> = completed
+        .iter().map(|matched| {
+            matched.matched.iter().map(|w| {
+                self.u8_to_str(&self.original_letters[w.letters_original_range.start as usize..w.letters_original_range.end as usize])
+            }).join(" ")
+        }).collect();
+        // for cand in &candidates {
+        //     if cand.letter_pool.len() == 0 {
+        //         self.print_matching(cand);
+        //     }
+        // }
+        println!("Added candidates {} (scratch) {} (cloned) ", nb_added_cand_scratch, nb_added_cand_cand);
+        println!("Found {} anagrams", completed.iter().filter(|c| c.is_complete()).count());
+        
         println!("{} iterations", nb_iter);
-        println!("Elapsed time: {:.2?}", before.elapsed());
+        // warp::reply::json(&reconstituted)
+        reconstituted
     }
 
     fn print_matching(&self, matching: &Matching) {
@@ -432,11 +427,11 @@ impl fmt::Display for Index {
         // for two_gram in &self.tagging_stats {
         //     writeln!(f, "{:?} {:?}", two_gram.first, two_gram.second)?;
         // }
-        for (key_pos, dest_map) in self.tagging_stats.iter() {
-            for (dest_pos, occ) in dest_map.iter() {
-                writeln!(f, "{:?} {:?} {}", key_pos, dest_pos, occ)?;
-            }
-        }
+        // for (key_pos, dest_map) in self.tagging_stats.iter() {
+        //     for (dest_pos, occ) in dest_map.iter() {
+        //         writeln!(f, "{:?} {:?} {}", key_pos, dest_pos, occ)?;
+        //     }
+        // }
         
         writeln!(f, "Mean letter count per word: {}", self.mean_word_size)?;
         Ok(())
@@ -462,7 +457,7 @@ impl<'a> Matching<'a> {
 
     fn best_permutation(&mut self, index: &Index) {
         let mut best_perm = vec![];
-        let mut best_score = 0.0;
+        let mut best_score = -1.0;
         if self.matched.len() == 1 {
             self.best_perm_score = f32::MAX;
             return;
@@ -479,7 +474,7 @@ impl<'a> Matching<'a> {
     }
 
     fn score_combination(combination: &Vec<&&Word>, index: &Index) -> f32 {
-        let mut score = 0.0;
+        let mut score = -1.0;
         for window in combination.windows(2) {
             let first = window[0];
             let second = window[1];
@@ -498,11 +493,11 @@ impl<'a> Matching<'a> {
                     };
                 }
             }
-            println!("'{}' and '{}' scored {}", 
-                index.u8_to_str(&index.original_letters[first.letters_original_range.start as usize..first.letters_original_range.end as usize]),
-                index.u8_to_str(&index.original_letters[second.letters_original_range.start as usize..second.letters_original_range.end as usize]),
-                best_inner_score,
-            );
+            // println!("'{}' and '{}' scored {}", 
+            //     index.u8_to_str(&index.original_letters[first.letters_original_range.start as usize..first.letters_original_range.end as usize]),
+            //     index.u8_to_str(&index.original_letters[second.letters_original_range.start as usize..second.letters_original_range.end as usize]),
+            //     best_inner_score,
+            // );
             score += best_inner_score;
         }
         score
@@ -511,21 +506,56 @@ impl<'a> Matching<'a> {
 
 use std::mem;
 
-fn main() {
+// fn main() {
+//     println!("Size of word: {}", mem::size_of::<Word>());
+//     println!("Size of matching: {}", mem::size_of::<Matching>());
+//     println!("Size of Letters: {}", mem::size_of::<Letters>());
+//     let index = Index::new();
+//     println!("{}", index);
+//     // let mut index = index;
+
+//     // println!("Indexing over, {} letters, {} words", index.letters.len(), index.word_defs.len());
+//     loop {
+    
+    //         let mut sentence = String::new();
+    //         println!("Please enter a sentence.");
+//         io::stdin().read_line(&mut sentence).expect("Failed to read input");
+//         // index.find_anagrams(sentence.clone());
+//         index.find_anagrams_reverse(sentence);
+//     }
+// }
+
+
+#[tokio::main]
+async fn main() {
     println!("Size of word: {}", mem::size_of::<Word>());
     println!("Size of matching: {}", mem::size_of::<Matching>());
     println!("Size of Letters: {}", mem::size_of::<Letters>());
-    let index = Index::new();
-    println!("{}", index);
-    // let mut index = index;
-   
-    // println!("Indexing over, {} letters, {} words", index.letters.len(), index.word_defs.len());
-    loop {
-
-        let mut sentence = String::new();
-        println!("Please enter a sentence.");
-        io::stdin().read_line(&mut sentence).expect("Failed to read input");
-        // index.find_anagrams(sentence.clone());
-        index.find_anagrams_reverse(sentence);
-    }
+    let before = Instant::now();
+    let index:  Index = Index::new();
+    println!("Took: {:.2?} to build index", before.elapsed());
+    // let closure = {
+    //     let index = &index;
+    //     move |input_sentence| {
+    //         let words = index.find_anagrams_reverse(input_sentence);
+    //         warp::reply::json(&vec!["test"])
+    //     } 
+    // };
+    // let route = warp::path!("query" / String)
+    //     // .map(|s| index.find_anagrams_reverse(s));
+    //     .map(|input_sentence| {
+    //         closure(input_sentence)
+    //     });
+            // format!("Hello, {}!", input_sentence);
+    let route = warp::path!("query" / String)
+        .map(move |input_sentence| {
+            let before = Instant::now();
+            let words = index.find_anagrams_reverse(input_sentence);
+            println!("Elapsed time: {:.2?}", before.elapsed());
+            warp::reply::json(&words)
+            // format!("Hello, {}!", input_sentence);
+        });
+    warp::serve(route)
+        .run(([127, 0, 0, 1], 3030))
+        .await;
 }
