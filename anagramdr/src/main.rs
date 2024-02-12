@@ -92,12 +92,18 @@ struct PosMorph {
 }
 
 type Letters = Vec<u8>;
+
 #[derive(Debug, Clone)]
-struct Word {
-    letters_sorted_range: Range<u32>,
+struct WordDefinition {
     letters_original_range: Range<u32>,
     pos_tag: PosTag,
     morph_tags: Vec<Morph>,
+}
+
+#[derive(Debug, Clone)]
+struct Word {
+    letters_sorted_range: Range<u32>,
+    definitions: Vec<WordDefinition>,
 }
 
 
@@ -138,9 +144,11 @@ struct Index {
     original_letters: Letters,
     /**
      * Contains sorted letters of each word, punctuation removed and to lowercase, i.e "Très-étrange" will be
-     * tresetrange (as indexes)
+     * -taeeegnrrst (as indexes)
      */
     sorted_letters: Letters,
+    // /* Ranges in sorted_letters corresponding to unique combination of sorted letters */
+    // word_indexes: Range<u32>,
     /** Character to position in "chars" to remove */ 
     chars_to_remove: HashSet<u8>,
     /** Uppercase variant to lowercase */
@@ -182,6 +190,7 @@ impl Index {
         CHARS_TO_REMOVE.chars().for_each(|c| {
             index.chars_to_remove.insert(*index.char_mapping.get(&c).unwrap());
         });
+        let mut unique_sorted_words: HashMap<Vec<u8>, &Word> = HashMap::new();
         let vocab_lines: io::Lines<io::BufReader<File>> = read_lines("data/words.jsonl").expect("Words file not found");
         for line in vocab_lines {
             if let Ok(word_def) = line {
@@ -204,14 +213,30 @@ impl Index {
                         }
                     }).collect();
                 sorted_range.sort();
-                index.sorted_letters.extend(sorted_range);
-                let new_word_def = Word {
+                let existing = unique_sorted_words.get_mut(&sorted_range);
+                let word_def = WordDefinition {
                     letters_original_range: lengths.0 as u32..index.original_letters.len() as u32,
-                    letters_sorted_range: lengths.1 as u32..index.sorted_letters.len() as u32,
                     pos_tag: PosTag::from_str(word_def["pos"].as_str().unwrap()).unwrap(),
                     morph_tags: Index::build_morph_tags(word_def["morph"].as_array().unwrap()),
                 };
-                index.word_defs.push(new_word_def);
+                if existing.is_none() {
+                    index.sorted_letters.extend(sorted_range);
+                    let new_word_def = Word {
+                        definitions: vec![word_def],
+                        letters_sorted_range: lengths.1 as u32..index.sorted_letters.len() as u32,
+                    };
+                    index.word_defs.push(new_word_def);
+                    unique_sorted_words.insert(sorted_range, &new_word_def);
+                } else {
+                    existing.unwrap().definitions.push(word_def);
+                }
+                // let new_word_def = Word {
+                //     letters_original_range: lengths.0 as u32..index.original_letters.len() as u32,
+                //     letters_sorted_range: lengths.1 as u32..index.sorted_letters.len() as u32,
+                //     pos_tag: PosTag::from_str(word_def["pos"].as_str().unwrap()).unwrap(),
+                //     morph_tags: Index::build_morph_tags(word_def["morph"].as_array().unwrap()),
+                // };
+                // index.word_defs.push(new_word_def);
             }
         }
         index.mean_word_size = index.mean_word_size / index.word_defs.len() as f32;
@@ -249,6 +274,10 @@ impl Index {
 
     fn u8_to_str(&self, indexes: &[u8]) -> String {
         indexes.iter().map(|&c| self.chars[c as usize]).collect()
+    }
+
+    fn range_to_original_str(&self, range: &Range<u32>) -> String {
+        self.original_letters[range.start as usize .. range.end as usize].iter().map(|&c|self.chars[c as usize]).collect()
     }
 
     fn build_morph_tags(morph: &Vec<Value>) -> Vec<Morph> {
@@ -455,18 +484,37 @@ impl<'a> Matching<'a> {
         (self.matched.len() as f32) + (self.letter_pool.len() as f32 / word_length as f32).ceil()
     }
 
-    fn best_permutation(&mut self, index: &Index) {
+    fn get_best_permutation(&self, index: &Index)-> String {
         let mut best_perm = vec![];
         let mut best_score = -1.0;
         if self.matched.len() == 1 {
             self.best_perm_score = f32::MAX;
-            return;
+            return index.range_to_original_str(&self.matched[0].definitions[0].letters_original_range);
         }
+        let mut constructed_string = String::new();
         self.matched.iter().permutations(self.matched.len()).for_each(|combination| {
-            let score = Matching::score_combination(&combination, index);
-            if score > best_score {
-                best_score = score;
-                best_perm = combination;
+            for window in combination.windows(2) {
+                let first = window[0];
+                let second = window[1];
+                let mut best_inner_score = 0.0;
+                for first_definition in first.definitions {
+                    for second_definition in second.definitions {
+                        for first_morph in &first_definition.morph_tags {
+                            for second_morph in &second_definition.morph_tags {
+                                let first_pos_morph = PosMorph{morph: *first_morph, pos: first_definition.pos_tag};
+                                let dest_map = index.tagging_stats.get(&first_pos_morph);
+                                if dest_map.is_none() { continue; }
+                                let second_pos_morph = PosMorph{morph: *second_morph, pos: second_definition.pos_tag};
+                                let stats_occ = dest_map.unwrap().get(&second_pos_morph);
+                                if stats_occ.is_none() { continue; }
+                                let occ = stats_occ.unwrap();
+                                if *occ > best_inner_score {
+                                    best_inner_score = *occ;
+                                };
+                            }
+                        }
+                    }
+                }
             }
         });
         self.matched = best_perm.into_iter().cloned().collect();
@@ -479,18 +527,22 @@ impl<'a> Matching<'a> {
             let first = window[0];
             let second = window[1];
             let mut best_inner_score = 0.0;
-            for first_morph in &first.morph_tags {
-                for second_morph in &second.morph_tags {
-                    let first_pos_morph = PosMorph{morph: *first_morph, pos: first.pos_tag};
-                    let dest_map = index.tagging_stats.get(&first_pos_morph);
-                    if dest_map.is_none() { continue; }
-                    let second_pos_morph = PosMorph{morph: *second_morph, pos: second.pos_tag};
-                    let stats_occ = dest_map.unwrap().get(&second_pos_morph);
-                    if stats_occ.is_none() { continue; }
-                    let occ = stats_occ.unwrap();
-                    if *occ > best_inner_score {
-                        best_inner_score = *occ;
-                    };
+            for first_definition in first.definitions {
+                for second_definition in second.definitions {
+                    for first_morph in &first_definition.morph_tags {
+                        for second_morph in &second_definition.morph_tags {
+                            let first_pos_morph = PosMorph{morph: *first_morph, pos: first_definition.pos_tag};
+                            let dest_map = index.tagging_stats.get(&first_pos_morph);
+                            if dest_map.is_none() { continue; }
+                            let second_pos_morph = PosMorph{morph: *second_morph, pos: second_definition.pos_tag};
+                            let stats_occ = dest_map.unwrap().get(&second_pos_morph);
+                            if stats_occ.is_none() { continue; }
+                            let occ = stats_occ.unwrap();
+                            if *occ > best_inner_score {
+                                best_inner_score = *occ;
+                            };
+                        }
+                    }
                 }
             }
             // println!("'{}' and '{}' scored {}", 
@@ -502,6 +554,10 @@ impl<'a> Matching<'a> {
         }
         score
     }
+
+    // fn to_string(&self, index: &Index) -> String {
+    //     index.u8_to_str(&index.original_letters[self.letters_original_range.start as usize..w.letters_original_range.end as usize])
+    // }
 }
 
 use std::mem;
