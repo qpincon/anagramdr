@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use serde_json::Value;
-use warp::reply::Json;
 use std::collections::{HashMap, HashSet};
 use std::str::{self, FromStr};
 use std::ops::Range;
@@ -13,7 +12,7 @@ use itertools::Itertools;
 use warp::Filter;
 
 const CHARS_TO_REMOVE : &'static str = " ,-"; // chars to remove for processing, but keep for storing words
-const ALLOWED_CHARS : &'static str = "aAàÀâÂäÄbBcCçÇdDeEéÉèÈêÊëËfFgGhHiIîÎïÏjJkKlLmMnNoOôÔöÖpPqQrRsStTuûüUvVwWxXyYzZ ',-"; // must contain CHARS_TO_REMOVE
+const ALLOWED_CHARS : &'static str = "aAàÀâÂäÄbBcCçÇdDeEéÉèÈêÊëËfFgGhHiIîÎïÏjJkKlLmMnNoOôÔöÖpPqQrRsStTuûüùUvVwWxXyYzZ ',-"; // must contain CHARS_TO_REMOVE
 
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Debug, EnumString, Hash, Copy, Clone)]
@@ -143,8 +142,6 @@ struct Index {
     sorted_letters: Letters,
     /** Character to position in "chars" to remove */ 
     chars_to_remove: HashSet<u8>,
-    /** Uppercase variant to lowercase */
-    uppercase_mapping: HashMap<u8, u8>,
     /** Contain all the words of the entry vocab */
     word_defs: Vec<Word>,
     mean_word_size: f32,
@@ -160,7 +157,6 @@ impl Index {
             char_mapping: HashMap::new(),
             chars: vec![],
             chars_to_remove: HashSet::new(),
-            uppercase_mapping: HashMap::new(),
             word_defs: vec![],
             sorted_letters: vec![],
             original_letters: vec![],
@@ -172,13 +168,6 @@ impl Index {
             index.char_mapping.insert(c, index.chars.len() as u8);
             index.chars.push(c);
         });
-        ALLOWED_CHARS.chars().for_each(|c| {
-            let mut lower = c.to_lowercase();
-            let first_char = lower.next().unwrap();
-            if first_char != c {
-                index.uppercase_mapping.insert(*index.char_mapping.get(&c).unwrap(), *index.char_mapping.get(&first_char).unwrap());
-            }
-        });
         CHARS_TO_REMOVE.chars().for_each(|c| {
             index.chars_to_remove.insert(*index.char_mapping.get(&c).unwrap());
         });
@@ -186,7 +175,7 @@ impl Index {
         for line in vocab_lines {
             if let Ok(word_def) = line {
                 let word_def : Value = serde_json::from_str(&word_def).unwrap();
-                let word = word_def["word"].as_str().unwrap();
+                let word = &word_def["word"].as_str().unwrap().to_lowercase();
                 let lengths = (index.original_letters.len(), index.sorted_letters.len());
                 if !word.chars().all(|x| index.char_mapping.contains_key(&x)) {
                     println!("{} not in character set: skipping", word);
@@ -194,15 +183,11 @@ impl Index {
                 }
                 index.mean_word_size += word.len() as f32;
                 index.original_letters.extend_from_slice(&index.str_to_u8(word));
-                 // remove punct and map uppercase to lowercase
-                let mut sorted_range : Vec<u8> = index.original_letters[lengths.0..index.original_letters.len()].iter()
+                let mut sorted_range : Vec<u8> = index.original_letters[lengths.0..index.original_letters.len()]
+                    .iter()
                     .filter(|c| !index.chars_to_remove.contains(c))
-                    .map(|c| {
-                        match index.uppercase_mapping.get(c) {
-                            Some(lower) => *lower,
-                            None => *c
-                        }
-                    }).collect();
+                    .cloned()
+                    .collect();
                 sorted_range.sort();
                 index.sorted_letters.extend(sorted_range);
                 let new_word_def = Word {
@@ -289,14 +274,8 @@ impl Index {
 
     fn process_input(&self, input : String) -> Letters {
         let space = self.char_mapping.get(&' ').unwrap();
-        let mut encoded : Letters = input.chars()
-            .map(|c| {
-                let c = self.char_mapping.get(&c).unwrap_or(space);
-                match self.uppercase_mapping.get(c) {
-                    Some(lowercase) => *lowercase,
-                    None => *c
-                }
-            })
+        let mut encoded : Letters = input.to_lowercase().chars()
+            .map(|c| *self.char_mapping.get(&c).unwrap_or(space))
             .filter(|c| !self.chars_to_remove.contains(&c))
             .collect();
         encoded.sort();
@@ -304,7 +283,7 @@ impl Index {
     }
 
     fn find_anagrams_reverse(&self, input: String) -> Vec<String> {
-        let max_cand_to_find = 1000;
+        let max_cand_to_find = 10000;
         let mut nb_iter = 0;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
@@ -420,9 +399,6 @@ impl fmt::Display for Index {
         //     writeln!(f, "{}, sorted : {}", self.u8_to_str(original), self.u8_to_str(sorted))?
         // }
         writeln!(f, "{} letters ({} sorted), {} words", self.original_letters.len(), self.sorted_letters.len(), self.word_defs.len())?;
-        // for (key, val) in self.uppercase_mapping.iter() {
-        //     writeln!(f, "{}: {}", self.chars[*key as usize], self.chars[*val as usize]);
-        // }
         
         // for two_gram in &self.tagging_stats {
         //     writeln!(f, "{:?} {:?}", two_gram.first, two_gram.second)?;
@@ -519,7 +495,7 @@ use std::mem;
     
     //         let mut sentence = String::new();
     //         println!("Please enter a sentence.");
-//         io::stdin().read_line(&mut sentence).expect("Failed to read input");
+    //         io::stdin().read_line(&mut sentence).expect("Failed to read input");
 //         // index.find_anagrams(sentence.clone());
 //         index.find_anagrams_reverse(sentence);
 //     }
@@ -533,6 +509,7 @@ async fn main() {
     println!("Size of Letters: {}", mem::size_of::<Letters>());
     let before = Instant::now();
     let index:  Index = Index::new();
+    println!("{}", index);
     println!("Took: {:.2?} to build index", before.elapsed());
     // let closure = {
     //     let index = &index;

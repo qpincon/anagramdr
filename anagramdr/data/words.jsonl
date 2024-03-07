@@ -8,7 +8,6 @@
 {"word":"ce","pos":"DET","morph":[{"Gender":"Masc","Number":"Sing"}]}
 {"word":"ci","pos":"PRON","morph":[{"Gender":"Masc","Number":"Plur"},{"Gender":"Fem","Number":"Sing"}]}
 {"word":"de","pos":"ADP","morph":[{"Number":"Plur"}]}
-{"word":"di","pos":"ADP","morph":[{}]}
 {"word":"du","pos":"ADP","morph":[{"Gender":"Masc","Number":"Sing"}]}
 {"word":"dé","pos":"NOUN","morph":[{"Gender":"Masc","Number":"Sing"}]}
 {"word":"dû","pos":"VERB","morph":[{"Gender":"Masc","Number":"Sing"}]}
