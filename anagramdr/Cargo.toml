@@ -12,3 +12,5 @@ serde_json = "1.0.112"
 itertools = "0.12.1"
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
+unicode-normalization = "0.1.23"
+urlencoding = "2.1.3"

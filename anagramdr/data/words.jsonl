@@ -2,7 +2,6 @@
 {"word":"an","pos":"NOUN","morph":[{"Gender":"Masc","Number":"Sing"}]}
 {"word":"as","pos":"AUX","morph":[{"Number":"Plur","Person":"2"},{"Number":"Sing","Person":"1"}]}
 {"word":"au","pos":"ADP","morph":[{"Gender":"Masc","Number":"Sing"}]}
-{"word":"bi","pos":"ADJ","morph":[{"Number":"Sing"}]}
 {"word":"bu","pos":"VERB","morph":[{"Gender":"Masc","Number":"Sing"}]}
 {"word":"ca","pos":"PRON","morph":[{"Number":"Sing"}]}
 {"word":"ce","pos":"DET","morph":[{"Gender":"Masc","Number":"Sing"}]}
@@ -14,11 +13,9 @@
 {"word":"eh","pos":"INTJ","morph":[{}]}
 {"word":"em","pos":"PRON","morph":[{}]}
 {"word":"en","pos":"ADP","morph":[{}]}
-{"word":"er","pos":"ADJ","morph":[{}]}
 {"word":"es","pos":"AUX","morph":[{"Number":"Plur","Person":"2"},{"Number":"Sing","Person":"1"}]}
 {"word":"et","pos":"CCONJ","morph":[{}]}
 {"word":"eu","pos":"VERB","morph":[{"Gender":"Masc","Number":"Sing"}]}
-{"word":"fi","pos":"NOUN","morph":[{"Gender":"Masc","Number":"Sing"}]}
 {"word":"il","pos":"PRON","morph":[{"Gender":"Masc","Number":"Sing","Person":"3"}]}
 {"word":"je","pos":"PRON","morph":[{"Number":"Sing","Person":"1"}]}
 {"word":"la","pos":"DET","morph":[{"Gender":"Fem","Number":"Sing"}]}

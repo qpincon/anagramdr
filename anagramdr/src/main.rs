@@ -3,17 +3,16 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::str::{self, FromStr};
 use std::ops::Range;
 use std::fmt;
 use strum_macros::EnumString;
 use itertools::Itertools;
 use warp::Filter;
-
-const CHARS_TO_REMOVE : &'static str = " ,-"; // chars to remove for processing, but keep for storing words
-const ALLOWED_CHARS : &'static str = "aAàÀâÂäÄbBcCçÇdDeEéÉèÈêÊëËfFgGhHiIîÎïÏjJkKlLmMnNoOôÔöÖpPqQrRsStTuûüùUvVwWxXyYzZ ',-"; // must contain CHARS_TO_REMOVE
-
+use unicode_normalization::char::{decompose_canonical, compose};
+use urlencoding::decode;
+const ALLOWED_CHARS : &'static str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz"; 
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Debug, EnumString, Hash, Copy, Clone)]
 enum Gender {
@@ -101,16 +100,16 @@ struct Word {
 
 
 // remove all elements from original that are in matched_words
-fn remove_elems<T>(original: &mut Vec<T>, matched_word: &[T]) where T: PartialOrd {
+fn remove_elems(original: &mut Vec<u8>, matched_word: &[u8], search_type: SearchType) {
     let lengths = (original.len(), matched_word.len()); // pool, searched
     let mut indexes = (0, 0); // pool, searched
     while indexes.0 < lengths.0 && indexes.1 < lengths.1 {
-        if matched_word[indexes.1] > original[indexes.0] { 
-            indexes.0 += 1;
-        }
-        else if matched_word[indexes.1] == original[indexes.0] {
+        if encoded_chars_equal(matched_word[indexes.1], original[indexes.0], search_type) {
             original.remove(indexes.0);
             indexes.1 += 1; 
+        }
+        else if matched_word[indexes.1] > original[indexes.0] { 
+            indexes.0 += 1;
         }
     }
 }
@@ -126,10 +125,6 @@ where P: AsRef<Path>, {
 
 #[derive(Clone)]
 struct Index {
-    /** Character to position in "chars" */
-    char_mapping: HashMap<char, u8>,
-    /** All characters in index, from 0 to ALLOWED_CHARS length */
-    chars: Vec<char>,
     /** 
      * Contains the word as found in the entry corpus, as positions in "chars". If vocab is ["bonjour", "toi"] it will contain
      * bonjourtoi (as indexes)
@@ -140,8 +135,6 @@ struct Index {
      * tresetrange (as indexes)
      */
     sorted_letters: Letters,
-    /** Character to position in "chars" to remove */ 
-    chars_to_remove: HashSet<u8>,
     /** Contain all the words of the entry vocab */
     word_defs: Vec<Word>,
     mean_word_size: f32,
@@ -149,14 +142,95 @@ struct Index {
     tagging_stats_total: u64,
 }
 
+#[derive(PartialEq, EnumString, Copy, Clone)]
+enum SearchType{
+    EXACT,
+    ROOT
+}
+
+/** First (left) 5 bits are for the position, the rest 3 is for the identifer.
+That leaves 8 possibilities for diacritics for the same char
+ */
+fn encode_char(ascii_pos: u8, diacritic_identifier: u8)-> u8 {
+    return ascii_pos << 3 | diacritic_identifier;
+}
+
+fn diacritic_to_offset(diacritic_code: u32) -> u8 {
+    match diacritic_code {
+        768 => 1, // accent grave
+        769 => 2, // accent aigu
+        770 => 3, // circonflexe
+        776 => 4, // trema
+        807 => 5, // cedille
+        _ => panic!("Unmatched diacritic")
+    }
+}
+
+fn offset_to_diacritic(diacritic_code: u8) -> Option<char> {
+    match diacritic_code {
+        0 => None,
+        1 => Some(char::from_u32(768).unwrap()), // accent grave
+        2 => Some(char::from_u32(769).unwrap()), // accent aigu
+        3 => Some(char::from_u32(770).unwrap()), // circonflexe
+        4 => Some(char::from_u32(776).unwrap()), // trema
+        5 => Some(char::from_u32(807).unwrap()), // cedille
+        _ => panic!("Unmatched offset")
+    }
+}
+
+fn u8_to_char(encoded: u8) -> char {
+    let diacritic_identifier = encoded & 7;
+    let ascii_pos = ((encoded >> 3) + 97) as u32;
+    let diacritic = offset_to_diacritic(diacritic_identifier);
+    if diacritic.is_none() {return char::from_u32(ascii_pos).unwrap();}
+    return compose(char::from_u32(ascii_pos).unwrap(), diacritic.unwrap()).unwrap();
+}
+
+fn char_to_u8(c: char) -> u8 {
+    let mut base_char: char = ' ';
+    let mut accent_index = 0;
+    let mut decomposed_index = 0;
+    decompose_canonical(c, |emitted| {
+        // should always be 0 or 1, since we deal with simple latin values with accents
+        if decomposed_index == 0 {
+            base_char = emitted;
+        } else {
+            accent_index = diacritic_to_offset(emitted as u32);
+        }
+        decomposed_index += 1;
+    });
+    if (base_char as u32) < 97 || (base_char as u32) >122 {
+        panic!("Unsuported character {}", base_char);
+    }
+    // println!("{} {} {}", base_char, ((base_char as u32) - 97) as u8, accent_index);
+    // 97 is unicode for 'a' 
+    return encode_char(((base_char as u32) - 97) as u8, accent_index);
+}
+
+fn str_to_u8(string: &str) -> Vec<u8> {
+    string.chars().map(|c| char_to_u8(c)).collect()
+}
+
+fn u8_to_str(u8: &[u8]) -> String {
+    String::from_iter(u8.iter().map(|&encoded| u8_to_char(encoded)))
+}
+
+#[inline(always)]
+fn encoded_chars_equal(a: u8, b: u8, search_type: SearchType) -> bool {
+    if search_type == SearchType::EXACT {
+        a == b
+    } else {
+        (a & 0b11111000) == (b & 0b11111000)
+    }
+}
+
 impl Index {
+
+    
     // construct the index from a jsonl file.
     // ASSUMES that the words are sorted by increasing length of letters
     fn new() -> Index {
         let mut index = Index {
-            char_mapping: HashMap::new(),
-            chars: vec![],
-            chars_to_remove: HashSet::new(),
             word_defs: vec![],
             sorted_letters: vec![],
             original_letters: vec![],
@@ -164,31 +238,24 @@ impl Index {
             tagging_stats: HashMap::new(),
             tagging_stats_total: 0,
         };
-        ALLOWED_CHARS.chars().for_each(|c| {
-            index.char_mapping.insert(c, index.chars.len() as u8);
-            index.chars.push(c);
-        });
-        CHARS_TO_REMOVE.chars().for_each(|c| {
-            index.chars_to_remove.insert(*index.char_mapping.get(&c).unwrap());
-        });
+       
         let vocab_lines: io::Lines<io::BufReader<File>> = read_lines("data/words.jsonl").expect("Words file not found");
         for line in vocab_lines {
             if let Ok(word_def) = line {
                 let word_def : Value = serde_json::from_str(&word_def).unwrap();
                 let word = &word_def["word"].as_str().unwrap().to_lowercase();
                 let lengths = (index.original_letters.len(), index.sorted_letters.len());
-                if !word.chars().all(|x| index.char_mapping.contains_key(&x)) {
+                if !word.chars().all(|x| ALLOWED_CHARS.chars().position(|c| c == x).is_some()) {
                     println!("{} not in character set: skipping", word);
                     continue;
                 }
                 index.mean_word_size += word.len() as f32;
-                index.original_letters.extend_from_slice(&index.str_to_u8(word));
-                let mut sorted_range : Vec<u8> = index.original_letters[lengths.0..index.original_letters.len()]
+                index.original_letters.extend_from_slice(&str_to_u8(word));
+                let sorted_range : Vec<u8> = index.original_letters[lengths.0..index.original_letters.len()]
                     .iter()
-                    .filter(|c| !index.chars_to_remove.contains(c))
                     .cloned()
+                    .sorted()
                     .collect();
-                sorted_range.sort();
                 index.sorted_letters.extend(sorted_range);
                 let new_word_def = Word {
                     letters_original_range: lengths.0 as u32..index.original_letters.len() as u32,
@@ -228,61 +295,59 @@ impl Index {
         index
     }
 
-    fn str_to_u8(&self, string: &str) -> Vec<u8> {
-        string.chars().map(|c| *self.char_mapping.get(&c).unwrap()).collect()
-    }
-
-    fn u8_to_str(&self, indexes: &[u8]) -> String {
-        indexes.iter().map(|&c| self.chars[c as usize]).collect()
-    }
-
+    
     fn build_morph_tags(morph: &Vec<Value>) -> Vec<Morph> {
         morph.iter().map(|val| -> Morph {
             Morph::from_serde_map(val.as_object().unwrap())
         }).collect()
     }
 
-    fn check_contains_all_letters(letter_pool: &[u8], searched: &[u8]) -> bool {
+
+
+    fn check_contains_all_letters(letter_pool: &[u8], searched: &[u8], search_type: SearchType) -> bool {
+        // println!("{:?} ({}) vs {:?} ({})", letter_pool, u8_to_str(letter_pool), searched, u8_to_str(searched));
         let lengths = (letter_pool.len(), searched.len()); // pool, searched
         if lengths.1 > lengths.0 { return false; }
         let mut indexes = (0, 0); // pool, searched
         while indexes.0 < lengths.0 && indexes.1 < lengths.1 {
-            if searched[indexes.1] < letter_pool[indexes.0] { return false; }
-            if searched[indexes.1] > letter_pool[indexes.0] { indexes.0 += 1; }
-            else if searched[indexes.1] == letter_pool[indexes.0] {
+            if encoded_chars_equal(searched[indexes.1], letter_pool[indexes.0], search_type) {
                 indexes.0 += 1; indexes.1 += 1; 
+            } else {
+                if searched[indexes.1] < letter_pool[indexes.0] { return false; }
+                if searched[indexes.1] > letter_pool[indexes.0] { indexes.0 += 1; }
             }
         }
         indexes.1 == lengths.1
     }
-
-    fn new_vec_removed_letters(original: &[u8], matched_word: &[u8]) -> Letters {
+    
+    fn new_vec_removed_letters(original: &[u8], matched_word: &[u8], search_type: SearchType) -> Letters {
         let lengths = (original.len(), matched_word.len()); // pool, searched
         let mut remaining : Vec<u8> = Vec::with_capacity(lengths.0 - lengths.1);
         let mut indexes = (0, 0); // pool, searched
         while indexes.0 < lengths.0 {
-            if indexes.1 == lengths.1 || matched_word[indexes.1] > original[indexes.0] { 
+            if indexes.1 == lengths.1 {
                 remaining.push(original[indexes.0]); 
                 indexes.0 += 1;
             }
-            else if matched_word[indexes.1] == original[indexes.0] {
+            else if encoded_chars_equal(matched_word[indexes.1], original[indexes.0], search_type) {
                 indexes.0 += 1; indexes.1 += 1; 
+            } else if matched_word[indexes.1] > original[indexes.0] { 
+                remaining.push(original[indexes.0]); 
+                indexes.0 += 1;
             }
         }
         remaining
     }
 
     fn process_input(&self, input : String) -> Letters {
-        let space = self.char_mapping.get(&' ').unwrap();
-        let mut encoded : Letters = input.to_lowercase().chars()
-            .map(|c| *self.char_mapping.get(&c).unwrap_or(space))
-            .filter(|c| !self.chars_to_remove.contains(&c))
-            .collect();
-        encoded.sort();
-        encoded
+        input.chars()
+        .filter(|x| ALLOWED_CHARS.chars().position(|c| c == *x).is_some())
+        .map(|c| char_to_u8(c))
+        .sorted()
+        .collect()
     }
 
-    fn find_anagrams_reverse(&self, input: String) -> Vec<String> {
+    fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Vec<String> {
         let max_cand_to_find = 10000;
         let mut nb_iter = 0;
         let mut nb_found = 0;
@@ -293,17 +358,17 @@ impl Index {
         let mut nb_added_cand_scratch = 0;
         let mut nb_added_cand_cand = 0;
         let mut enough_found = false;
-        println!("letters = {}",  self.u8_to_str(&sorted_input));
+        println!("letters = {}",  u8_to_str(&sorted_input));
         for word in self.word_defs.iter().rev() {
             let searched_word_letters = &self.sorted_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
             let cur_word_length = word.letters_sorted_range.end - word.letters_sorted_range.start;
-            if index % 200 == 0 {
-                let searched_word_original = &self.original_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
-                println!("Added candidates {} (scratch) {} (cloned), {} found", nb_added_cand_scratch, nb_added_cand_cand, nb_found);
-                nb_added_cand_scratch = 0;
-                nb_added_cand_cand = 0;
-                println!("{} / {}, {} candidates, word = {}", index, self.word_defs.len(), candidates.len(), self.u8_to_str(&searched_word_original));
-            }
+            // if index % 200 == 0 {
+            //     let searched_word_original = &self.original_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
+            //     println!("Added candidates {} (scratch) {} (cloned), {} found", nb_added_cand_scratch, nb_added_cand_cand, nb_found);
+            //     nb_added_cand_scratch = 0;
+            //     nb_added_cand_cand = 0;
+            //     println!("{} / {}, {} candidates, word = {}", index, self.word_defs.len(), candidates.len(), self.u8_to_str(&searched_word_original));
+            // }
             index += 1;
             nb_iter += 1;
             let nb_cand = candidates.len();
@@ -317,12 +382,12 @@ impl Index {
                 let should_add_new = input_length < 20 || candidates.len() < 300 
                     || cur_word_length > 4 || (candidate.min_nb_words(cur_word_length) / input_length as f32) < 0.3;
                 if !should_add_new { continue; }
-                let check_pass = Index::check_contains_all_letters(&candidate.letter_pool, searched_word_letters);
+                let check_pass = Index::check_contains_all_letters(&candidate.letter_pool, searched_word_letters, search_type);
                 /* Create new candidate with the matching letters removed from the pool */
                 if check_pass {
                     nb_added_cand_cand += 1;
                     let mut new_cand = candidate.clone();
-                    remove_elems(&mut new_cand.letter_pool, searched_word_letters);
+                    remove_elems(&mut new_cand.letter_pool, searched_word_letters, search_type);
                     new_cand.matched.push(&word);
                     if new_cand.is_complete() { 
                         nb_found+= 1;
@@ -339,9 +404,9 @@ impl Index {
             let should_add_new = input_length < 20 || candidates.len() < 300
                 || cur_word_length > 4 || (cur_word_length as f32 / input_length as f32) > 0.2;
             /* Find new candidates from scratch */
-            if should_add_new && Index::check_contains_all_letters(&sorted_input, searched_word_letters) {
+            if should_add_new && Index::check_contains_all_letters(&sorted_input, searched_word_letters, search_type) {
                 // remove letters from original pool
-                let remaining_letters = Index::new_vec_removed_letters(&sorted_input, searched_word_letters);
+                let remaining_letters = Index::new_vec_removed_letters(&sorted_input, searched_word_letters, search_type);
                 let mut new_candidate = Matching { letter_pool: remaining_letters, matched: vec![word], best_perm_score: 0.0};
                 if new_candidate.is_complete() { 
                     nb_found+= 1;
@@ -360,7 +425,7 @@ impl Index {
         let reconstituted: Vec<String> = completed
         .iter().map(|matched| {
             matched.matched.iter().map(|w| {
-                self.u8_to_str(&self.original_letters[w.letters_original_range.start as usize..w.letters_original_range.end as usize])
+                u8_to_str(&self.original_letters[w.letters_original_range.start as usize..w.letters_original_range.end as usize])
             }).join(" ")
         }).collect();
         // for cand in &candidates {
@@ -378,11 +443,11 @@ impl Index {
 
     fn print_matching(&self, matching: &Matching) {
         if matching.letter_pool.len() > 0 {
-            println!("Remaining letters: {}", self.u8_to_str(&matching.letter_pool));
+            println!("Remaining letters: {}", u8_to_str(&matching.letter_pool));
         }
         println!("matched {} words:", matching.matched.len());
         for word in &matching.matched {
-            print!("{} ", self.u8_to_str(&self.original_letters[word.letters_original_range.start as usize..word.letters_original_range.end as usize]));
+            print!("{} ", u8_to_str(&self.original_letters[word.letters_original_range.start as usize..word.letters_original_range.end as usize]));
         }
         print!("(score = {})", matching.best_perm_score);
         println!();
@@ -511,28 +576,63 @@ async fn main() {
     let index:  Index = Index::new();
     println!("{}", index);
     println!("Took: {:.2?} to build index", before.elapsed());
-    // let closure = {
-    //     let index = &index;
-    //     move |input_sentence| {
-    //         let words = index.find_anagrams_reverse(input_sentence);
-    //         warp::reply::json(&vec!["test"])
-    //     } 
-    // };
-    // let route = warp::path!("query" / String)
-    //     // .map(|s| index.find_anagrams_reverse(s));
-    //     .map(|input_sentence| {
-    //         closure(input_sentence)
-    //     });
-            // format!("Hello, {}!", input_sentence);
-    let route = warp::path!("query" / String)
-        .map(move |input_sentence| {
+    let route = warp::path!("query" / String / String)
+        .map(move |input_sentence: String, search_type: String| {
+            let search_type = SearchType::from_str(&search_type).unwrap();
+            let input: String = decode(&input_sentence).expect("UTF-8").into_owned();
             let before = Instant::now();
-            let words = index.find_anagrams_reverse(input_sentence);
+            let words = index.find_anagrams_reverse(input, search_type);
             println!("Elapsed time: {:.2?}", before.elapsed());
             warp::reply::json(&words)
-            // format!("Hello, {}!", input_sentence);
         });
     warp::serve(route)
         .run(([127, 0, 0, 1], 3030))
         .await;
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn str_to_sorted_encoded(input: &str) -> Vec<u8>{
+        let mut encoded = str_to_u8(input);
+        encoded.sort();
+        encoded
+    }
+
+    #[test]
+    fn char_encoding_decoding() {
+        let encoded = char_to_u8('e');
+        assert_eq!(encoded, 0b00100000); // e is 5th position, so '4'
+        assert_eq!(u8_to_char(0b00100000), 'e'); // e is 5th position, so '4'
+        let encoded = char_to_u8('é');
+        assert_eq!(encoded, 0b00100010);
+        assert_eq!(u8_to_char(0b00100010), 'é'); 
+        let encoded = char_to_u8('è');
+        assert_eq!(encoded, 0b00100001);
+        assert_eq!(u8_to_char(0b00100001), 'è'); 
+        let encoded = char_to_u8('ê');
+        assert_eq!(encoded, 0b00100011);
+        assert_eq!(u8_to_char(0b00100011), 'ê'); 
+        let encoded = char_to_u8('ë');
+        assert_eq!(encoded, 0b00100100);
+        assert_eq!(u8_to_char(0b00100100), 'ë'); 
+    }
+    
+    
+    #[test]
+    fn encoded_comparison() {
+        assert_eq!(Index::check_contains_all_letters(&str_to_sorted_encoded("efforça"), &str_to_sorted_encoded("efforça"), SearchType::EXACT), true);
+        assert_eq!(Index::check_contains_all_letters(&str_to_sorted_encoded("efforça"), &str_to_sorted_encoded("efforça"), SearchType::ROOT), true);
+        assert_eq!(Index::check_contains_all_letters(&str_to_sorted_encoded("efforca"), &str_to_sorted_encoded("efforça"), SearchType::ROOT), true);
+        assert_eq!(Index::check_contains_all_letters(&str_to_sorted_encoded("efforca"), &str_to_sorted_encoded("efforça"), SearchType::EXACT), false);
+    }
+    #[test]
+    fn encoded_comparison_new_vec() {
+        assert_eq!(Index::new_vec_removed_letters(&str_to_sorted_encoded("efforça"), &str_to_sorted_encoded("efforç"), SearchType::EXACT), [0]);
+        let missing = char_to_u8('ç');
+        assert_eq!(Index::new_vec_removed_letters(&str_to_sorted_encoded("efforça"), &str_to_sorted_encoded("effora"), SearchType::EXACT), [missing]);
+    }
+
 }
