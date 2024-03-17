@@ -1,0 +1,55 @@
+@use "@picocss/pico/scss/pico" with (
+  $enable-semantic-container: true,
+  $enable-classes: false,
+  $theme-color: "azure",
+  $modules: (
+    "content/code": false,
+    "forms/input-color": false,
+    "forms/input-date": false,
+    "forms/input-file": false,
+    "forms/input-range": false,
+    "components/accordion": false,
+    "components/card": false,
+    "components/dropdown": false,
+    "components/loading": false,
+    "components/modal": false,
+    "components/nav": false,
+    "components/progress": false,
+    "components/tooltip": false,
+    "utilities/accessibility": false,
+    "utilities/reduce-motion": false,
+  ),
+);
+
+.bg-1 {
+  background-image: linear-gradient(
+  130deg,
+  hsl(32deg 100% 39%) 0%,
+  hsl(35deg 94% 41%) 11%,
+  hsl(37deg 89% 43%) 22%,
+  hsl(40deg 84% 46%) 33%,
+  hsl(42deg 80% 49%) 44%,
+  hsl(45deg 79% 51%) 56%,
+  hsl(47deg 83% 54%) 67%,
+  hsl(50deg 88% 57%) 78%,
+  hsl(52deg 94% 60%) 89%,
+  hsl(55deg 100% 63%) 100%
+);
+opacity: 0.4;
+}
+.bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.noise {
+  background-repeat: repeat;
+  background-size: 400px;
+  opacity: 0.2;
+}
