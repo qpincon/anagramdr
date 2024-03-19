@@ -12,7 +12,7 @@ use strum_macros::EnumString;
 use unicode_normalization::char::{compose, decompose_canonical};
 use urlencoding::decode;
 use warp::Filter;
-const ALLOWED_CHARS: &'static str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
+const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Debug, EnumString, Hash, Copy, Clone)]
 enum Gender {
@@ -167,7 +167,7 @@ fn encoded_letters_to_bloom_u32(input: &[u8]) -> u32 {
 That leaves 8 possibilities for diacritics for the same char
  */
 fn encode_char(ascii_pos: u8, diacritic_identifier: u8) -> u8 {
-    return ascii_pos << 3 | diacritic_identifier;
+    ascii_pos << 3 | diacritic_identifier
 }
 
 fn diacritic_to_offset(diacritic_code: u32) -> u8 {
@@ -200,7 +200,7 @@ fn u8_to_char(encoded: u8) -> char {
     if diacritic.is_none() {
         return char::from_u32(ascii_pos).unwrap();
     }
-    return compose(char::from_u32(ascii_pos).unwrap(), diacritic.unwrap()).unwrap();
+    compose(char::from_u32(ascii_pos).unwrap(), diacritic.unwrap()).unwrap()
 }
 
 fn char_to_u8(c: char) -> u8 {
@@ -225,7 +225,7 @@ fn char_to_u8(c: char) -> u8 {
 }
 
 fn str_to_u8(string: &str) -> Vec<u8> {
-    string.chars().map(|c| char_to_u8(c)).collect()
+    string.chars().map(char_to_u8).collect()
 }
 
 fn u8_to_str(u8: &[u8]) -> String {
@@ -263,7 +263,7 @@ impl Index {
                 let lengths = (index.original_letters.len(), index.sorted_letters.len());
                 if !word
                     .chars()
-                    .all(|x| ALLOWED_CHARS.chars().position(|c| c == x).is_some())
+                    .all(|x| ALLOWED_CHARS.chars().any(|c| c == x))
                 {
                     println!("{} not in character set: skipping", word);
                     continue;
@@ -283,12 +283,12 @@ impl Index {
                     letters_sorted_range: lengths.1 as u32..index.sorted_letters.len() as u32,
                     pos_tag: PosTag::from_str(word_def["pos"].as_str().unwrap()).unwrap(),
                     morph_tags: Index::build_morph_tags(word_def["morph"].as_array().unwrap()),
-                    bloom_letters: bloom_letters,
+                    bloom_letters,
                 };
                 index.word_defs.push(new_word_def);
             }
         }
-        index.mean_word_size = index.mean_word_size / index.word_defs.len() as f32;
+        index.mean_word_size /= index.word_defs.len() as f32;
 
         let tagging_lines: io::Lines<io::BufReader<File>> =
             read_lines("data/tagging_stats.jsonl").expect("Tagging stats file not found");
@@ -438,6 +438,7 @@ impl Index {
         let mut nb_added_cand_scratch = 0;
         let mut nb_added_cand_cand = 0;
         let mut enough_found = false;
+        let start = Instant::now();
 
         let matchable_words = self.get_matchable_words(&sorted_input, search_type);
         println!("letters = {}", u8_to_str(&sorted_input));
@@ -540,7 +541,7 @@ impl Index {
                     letter_pool: remaining_letters,
                     matched: vec![word],
                     best_perm_score: 0.0,
-                    bloom_letters: bloom_letters,
+                    bloom_letters,
                 };
                 if new_candidate.is_complete() {
                     nb_found += 1;
@@ -550,6 +551,7 @@ impl Index {
                 nb_added_cand_scratch += 1;
             }
         }
+        println!("Finished search in {:.2?}", start.elapsed());
         println!("{} candidate group", candidates.len());
         let mut completed: Vec<Matching> = candidates
             .into_iter()
@@ -587,27 +589,28 @@ impl Index {
         );
 
         println!("{} iterations", nb_iter);
+        println!("Total time: {:.2?}", start.elapsed());
         // warp::reply::json(&reconstituted)
         reconstituted
     }
 
-    fn print_matching(&self, matching: &Matching) {
-        if matching.letter_pool.len() > 0 {
-            println!("Remaining letters: {}", u8_to_str(&matching.letter_pool));
-        }
-        println!("matched {} words:", matching.matched.len());
-        for word in &matching.matched {
-            print!(
-                "{} ",
-                u8_to_str(
-                    &self.original_letters[word.letters_original_range.start as usize
-                        ..word.letters_original_range.end as usize]
-                )
-            );
-        }
-        print!("(score = {})", matching.best_perm_score);
-        println!();
-    }
+    // fn print_matching(&self, matching: &Matching) {
+    //     if matching.letter_pool.len() > 0 {
+    //         println!("Remaining letters: {}", u8_to_str(&matching.letter_pool));
+    //     }
+    //     println!("matched {} words:", matching.matched.len());
+    //     for word in &matching.matched {
+    //         print!(
+    //             "{} ",
+    //             u8_to_str(
+    //                 &self.original_letters[word.letters_original_range.start as usize
+    //                     ..word.letters_original_range.end as usize]
+    //             )
+    //         );
+    //     }
+    //     print!("(score = {})", matching.best_perm_score);
+    //     println!();
+    // }
 }
 
 impl fmt::Display for Index {
@@ -703,7 +706,7 @@ impl<'a> Matching<'a> {
      * Expections:
      * - If last word is ADP, DET or PRON, penalize current combination
      */
-    fn score_combination(combination: &Vec<&&Word>, index: &Index) -> f32 {
+    fn score_combination(combination: &[&&Word], index: &Index) -> f32 {
         let mut score = 0.0;
         for window in combination.windows(2) {
             let first = window[0];
