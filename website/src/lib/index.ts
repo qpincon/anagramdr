@@ -1,11 +1,10 @@
 import * as gifenc from 'gifenc';
-export async function loadAnagrams(expression, {searchType="ROOT"} = {}) {
-    // const domain = window.location.origin;
-    // const port = 3030;
-    const res = await fetch(`http://localhost:3030/query/${expression}/${searchType}`);
+
+export async function loadAnagrams({input="", searchType="ROOT"} = {}) {
+    const queryParams = new URLSearchParams({input, searchType});
+    const res = await fetch(`query?${queryParams.toString()}`);
     return await res.json();
 }
-
 
 function download (buf, filename, type) {
     const blob = buf instanceof Blob ? buf : new Blob([buf], { type });
@@ -16,7 +15,7 @@ function download (buf, filename, type) {
     anchor.click();
   };
   
-export async function encode ({ctx, renderFunction, }) {
+export async function encodeToGif ({ctx, renderFunction }) {
     // const context = canvas.getContext('2d');
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
@@ -69,3 +68,5 @@ export async function encode ({ctx, renderFunction, }) {
     const buffer = gif.bytesView();
     download(buffer, 'animation.gif', { type: 'image/gif' });
   }
+
+

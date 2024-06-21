@@ -26,6 +26,7 @@ def write_jsonl(path, words):
 
 # TODO:
 # - harmoniser les stats
+# - enlever mots pareils si on leur enleve leur accent ()
 
 # https://github.com/chrplr/openlexicon/blob/master/datasets-info/Liste-de-mots-francais-Gutenberg/README-liste-francais-Gutenberg.md
 blacklist = set(pd.read_csv("blacklist.csv")["word"])
@@ -302,6 +303,10 @@ for word in encountered_vocab:
                     continue
             if should_add:
                 morph_to_keep.append(to_add)
+    for m in morph_to_keep:
+        gender = m.get('Gender')
+        if gender is not None and first_pos_morph[0] == "VERB":
+            del m['Gender']
     to_add = {"word": word, "pos": first_pos_morph[0], "morph": morph_to_keep}
     final_vocab.append(to_add)
 

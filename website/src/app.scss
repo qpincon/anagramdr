@@ -1,6 +1,7 @@
+@use './fonts.scss';
 @use "@picocss/pico/scss/pico" with (
-  $enable-semantic-container: true,
-  $enable-classes: false,
+  $enable-semantic-container: false,
+  $enable-classes: true,
   $theme-color: "azure",
   $modules: (
     "content/code": false,
@@ -21,21 +22,29 @@
   ),
 );
 
+body > main {
+  padding: 0;
+}
 .bg-1 {
   background-image: linear-gradient(
-  130deg,
-  hsl(32deg 100% 39%) 0%,
-  hsl(35deg 94% 41%) 11%,
-  hsl(37deg 89% 43%) 22%,
-  hsl(40deg 84% 46%) 33%,
-  hsl(42deg 80% 49%) 44%,
-  hsl(45deg 79% 51%) 56%,
-  hsl(47deg 83% 54%) 67%,
-  hsl(50deg 88% 57%) 78%,
-  hsl(52deg 94% 60%) 89%,
-  hsl(55deg 100% 63%) 100%
-);
-opacity: 0.4;
+    130deg,
+    hsl(32deg 100% 39%) 0%,
+    hsl(33deg 73% 46%) 11%,
+    hsl(35deg 61% 52%) 22%,
+    hsl(37deg 60% 57%) 33%,
+    hsl(40deg 59% 63%) 44%,
+    hsl(42deg 58% 69%) 56%,
+    hsl(46deg 56% 75%) 67%,
+    hsl(49deg 56% 82%) 78%,
+    hsl(54deg 60% 89%) 89%,
+    hsl(60deg 100% 97%) 100%
+  );
+  opacity: 0.4;
+}
+
+.bg-2 {
+  background: radial-gradient(circle at center bottom, #63baab, #ebf8e1, #f69d3c);
+  opacity: 0.2;
 }
 .bg {
   position: fixed;
@@ -52,4 +61,52 @@ opacity: 0.4;
   background-repeat: repeat;
   background-size: 400px;
   opacity: 0.2;
+}
+
+
+.bona-nova-regular {
+  font-family: "Bona Nova", serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+
+.fuzzy-bubbles-regular {
+  font-family: "Fuzzy Bubbles", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.fuzzy-bubbles-bold {
+  font-family: "Fuzzy Bubbles", sans-serif;
+  font-weight: 700;
+}
+
+
+html, .commissioner {
+  font-family: "Commissioner", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 300;
+  font-style: normal;
+  font-variation-settings:
+    "slnt" 0,
+    "FLAR" 0,
+    "VOLM" 0;
+}
+
+.commissioner-bold {
+  font-family: "Commissioner", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 550;
+  font-style: normal;
+  font-variation-settings:
+    "slnt" 0,
+    "FLAR" 0,
+    "VOLM" 0;
+}
+
+.logo {
+  pointer-events: none;
+  user-select: none;
+
 }
