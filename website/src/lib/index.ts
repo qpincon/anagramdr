@@ -34,7 +34,7 @@ export async function encodeToGif ({ctx, renderFunction }) {
     console.log(totalFrames, 'frames');
     // Setup an encoder that we will write frames into
     const gif = gifenc.GIFEncoder();
-  
+    let palette;
     for (let i = 0; i <= totalFrames; ++i) {
       // a t value 0..1 to animate the frame
       const progress = i / totalFrames;
@@ -46,16 +46,16 @@ export async function encodeToGif ({ctx, renderFunction }) {
       const data = ctx.getImageData(0, 0, width, height).data;
   
       // Choose a pixel format: rgba4444, rgb444, rgb565
-      const format = "rgb444";
-  
-      // If necessary, quantize your colors to a reduced palette
-      const palette = gifenc.quantize(data, 256, { format });
+      const format = "rgba4444";
+      if (i === 0) {
+        palette = gifenc.quantize(data, 256, { format, oneBitAlpha: true});
+      }
   
       // Apply palette to RGBA data to get an indexed bitmap
       const index = gifenc.applyPalette(data, palette, format);
-  
       // Write frame into GIF
-      gif.writeFrame(index, width, height, { palette, delay });
+      gif.writeFrame(index, width, height, { palette, delay, transparent: true });
+      // gif.writeFrame(index, width, height, { palette, delay });
   
       // Wait a tick so that we don't lock up browser
       await new Promise(resolve => setTimeout(resolve, 0));

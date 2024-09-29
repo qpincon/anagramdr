@@ -15,6 +15,9 @@ use urlencoding::decode;
 use warp::Filter;
 const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[derive(PartialOrd, Ord, PartialEq, Eq, Debug, EnumString, Hash, Copy, Clone)]
 enum Gender {
     Fem,
@@ -99,6 +102,7 @@ struct Word {
     pos_tag: PosTag,
     morph_tags: Vec<Morph>,
     bloom_letters: u32,
+    is_prio: bool,
 }
 
 // remove all elements from original that are in matched_words
@@ -131,6 +135,9 @@ type PosTagNGram = (
     Option<PosTag>,
     Option<PosTag>,
 );
+
+static PRIORITY_WORDS:  &'static [&'static str] = &["ce", "cet", "cette", "un", "une", "le", "la", "de", "du", "sur"];
+
 #[derive(Clone)]
 struct Index {
     /**
@@ -147,7 +154,7 @@ struct Index {
     word_defs: Vec<Word>,
     mean_word_size: f32,
     tagging_stats: HashMap<PosMorph, HashMap<PosMorph, f32>>,
-    pos_n_gramps: HashMap<PosTagNGram, f32>,
+    pos_n_grams: HashMap<PosTagNGram, f32>,
 }
 
 #[derive(PartialEq, EnumString, Copy, Clone, Default, Serialize, Deserialize, Debug)]
@@ -253,7 +260,7 @@ impl Index {
             original_letters: vec![],
             mean_word_size: 0.0,
             tagging_stats: HashMap::new(),
-            pos_n_gramps: HashMap::new(),
+            pos_n_grams: HashMap::new(),
         };
 
         let vocab_lines: io::Lines<io::BufReader<File>> =
@@ -286,6 +293,7 @@ impl Index {
                     pos_tag: PosTag::from_str(word_def["pos"].as_str().unwrap()).unwrap(),
                     morph_tags: Index::build_morph_tags(word_def["morph"].as_array().unwrap()),
                     bloom_letters,
+                    is_prio: PRIORITY_WORDS.iter().find(|&&x| x.eq(word)).is_some(),
                 };
                 index.word_defs.push(new_word_def);
             }
@@ -341,7 +349,7 @@ impl Index {
                     ngram.push(None);
                 }
                 let t: PosTagNGram = ngram.iter().cloned().collect_tuple().unwrap();
-                index.pos_n_gramps.insert(t, occurences);
+                index.pos_n_grams.insert(t, occurences);
             }
         }
         index
@@ -415,6 +423,7 @@ impl Index {
             .collect()
     }
 
+    // TODO: use is_prio to move up the letters in the array for us to be sure to include it in the search
     fn get_matchable_words(&self, input_letters: &[u8], search_type: SearchType) -> Vec<&Word> {
         self.word_defs
             .iter()
@@ -439,48 +448,49 @@ impl Index {
      */
     fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Vec<String> {
         let max_cand_to_find = 10000;
-        let mut nb_iter = 0;
+        // let mut nb_iter = 0;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
         let input_length = sorted_input.len();
         let mut candidates: Vec<Matching> = vec![];
-        let mut nb_added_cand_scratch = 0;
-        let mut nb_added_cand_cand = 0;
+        // let mut nb_added_cand_scratch = 0;
+        // let mut nb_added_cand_cand = 0;
         let mut enough_found = false;
-        let start = Instant::now();
+        // let start = Instant::now();
 
         let matchable_words = self.get_matchable_words(&sorted_input, search_type);
-        println!("letters = {}", u8_to_str(&sorted_input));
-        println!("{} matchable words", matchable_words.len());
-        for (index, word) in matchable_words.iter().rev().enumerate() {
+        // println!("letters = {}", u8_to_str(&sorted_input));
+        // println!("{} matchable words", matchable_words.len());
+        // for (index, word) in matchable_words.iter().rev().enumerate() {
+        for word in matchable_words.iter().rev() {
             let searched_word_letters = &self.sorted_letters
                 [word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
             let cur_word_length = word.letters_sorted_range.end - word.letters_sorted_range.start;
-            if index % 200 == 0 {
-                let searched_word_original = &self.original_letters[word.letters_sorted_range.start
-                    as usize
-                    ..word.letters_sorted_range.end as usize];
-                println!(
-                    "Added candidates {} (scratch) {} (cloned), {} found",
-                    nb_added_cand_scratch, nb_added_cand_cand, nb_found
-                );
-                nb_added_cand_scratch = 0;
-                nb_added_cand_cand = 0;
-                println!(
-                    "{} / {}, {} candidates, word = {}",
-                    index,
-                    matchable_words.len(),
-                    candidates.len(),
-                    u8_to_str(searched_word_original)
-                );
-            }
-            nb_iter += 1;
+            // if index % 200 == 0 {
+                // let searched_word_original = &self.original_letters[word.letters_sorted_range.start
+                //     as usize
+                //     ..word.letters_sorted_range.end as usize];
+                // println!(
+                //     "Added candidates {} (scratch) {} (cloned), {} found",
+                //     nb_added_cand_scratch, nb_added_cand_cand, nb_found
+                // );
+                // nb_added_cand_scratch = 0;
+                // nb_added_cand_cand = 0;
+                // println!(
+                //     "{} / {}, {} candidates, word = {}",
+                //     index,
+                //     matchable_words.len(),
+                //     candidates.len(),
+                //     u8_to_str(searched_word_original)
+                // );
+            // }
+            // nb_iter += 1;
             let nb_cand = candidates.len();
             /* Search new candidates among current ones */
             for cand_index in 0..nb_cand {
                 let candidate: &Matching<'_> = &candidates[cand_index];
-                nb_iter += 1;
-                if candidate.letter_pool.is_empty() {
+                // nb_iter += 1;
+                if candidate.is_complete {
                     continue;
                 }
                 /* Only add new if the potential total of words is small enough relative to input size  */
@@ -503,16 +513,17 @@ impl Index {
                 /* Create new candidate with the matching letters removed from the pool */
                 if check_pass {
                     // println!("{} vs {}", u8_to_str(&self.sorted_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize]), u8_to_str(&candidate.letter_pool));
-                    nb_added_cand_cand += 1;
+                    // nb_added_cand_cand += 1;
                     let mut new_cand = candidate.clone();
                     remove_elems(
                         &mut new_cand.letter_pool,
                         searched_word_letters,
                         search_type,
                     );
+                    new_cand.is_complete = new_cand.letter_pool.len() == 0;
                     new_cand.bloom_letters = encoded_letters_to_bloom_u32(&new_cand.letter_pool);
                     new_cand.matched.push(word);
-                    if new_cand.is_complete() {
+                    if new_cand.is_complete {
                         nb_found += 1;
                         new_cand.best_permutation(self);
                     }
@@ -544,23 +555,25 @@ impl Index {
                     searched_word_letters,
                     search_type,
                 );
+                let length = remaining_letters.len();
                 let bloom_letters = encoded_letters_to_bloom_u32(&remaining_letters);
                 let mut new_candidate = Matching {
                     letter_pool: remaining_letters,
+                    is_complete: length == 0,
                     matched: vec![word],
                     best_perm_score: 0.0,
                     bloom_letters,
                 };
-                if new_candidate.is_complete() {
+                if new_candidate.is_complete {
                     nb_found += 1;
                     new_candidate.best_permutation(self);
                 }
                 candidates.push(new_candidate);
-                nb_added_cand_scratch += 1;
+                // nb_added_cand_scratch += 1;
             }
         }
-        println!("Finished search in {:.2?}", start.elapsed());
-        println!("{} candidate group", candidates.len());
+        // println!("Finished search in {:.2?}", start.elapsed());
+        // println!("{} candidate group", candidates.len());
         let mut completed: Vec<Matching> = candidates
             .into_iter()
             .filter(|matched| matched.letter_pool.is_empty())
@@ -587,17 +600,17 @@ impl Index {
                 // str
             })
             .collect();
-        println!(
-            "Added candidates {} (scratch) {} (cloned) ",
-            nb_added_cand_scratch, nb_added_cand_cand
-        );
-        println!(
-            "Found {} anagrams",
-            completed.iter().filter(|c| c.is_complete()).count()
-        );
+        // println!(
+        //     "Added candidates {} (scratch) {} (cloned) ",
+        //     nb_added_cand_scratch, nb_added_cand_cand
+        // );
+        // println!(
+        //     "Found {} anagrams",
+        //     completed.iter().filter(|c| c.is_complete()).count()
+        // );
 
-        println!("{} iterations", nb_iter);
-        println!("Total time: {:.2?}", start.elapsed());
+        // println!("{} iterations", nb_iter);
+        // println!("Total time: {:.2?}", start.elapsed());
         reconstituted
     }
 
@@ -636,6 +649,7 @@ impl fmt::Display for Index {
 #[derive(Debug, Clone)]
 struct Matching<'a> {
     letter_pool: Letters,
+    is_complete: bool,
     bloom_letters: u32,
     matched: Vec<&'a Word>,
     best_perm_score: f32,
@@ -654,9 +668,6 @@ fn pos_tuple_from_words(words: &[&&Word]) -> PosTagNGram {
 }
 
 impl<'a> Matching<'a> {
-    fn is_complete(&self) -> bool {
-        self.letter_pool.is_empty()
-    }
 
     fn min_nb_words(&self, word_length: u32) -> f32 {
         (self.matched.len() as f32) + (self.letter_pool.len() as f32 / word_length as f32).ceil()
@@ -675,7 +686,7 @@ impl<'a> Matching<'a> {
             .for_each(|combination| {
                 let mut score = Matching::score_combination(&combination, index);
                 let pos_n_gram = pos_tuple_from_words(&combination);
-                if let Some(occs) = index.pos_n_gramps.get(&pos_n_gram) {
+                if let Some(occs) = index.pos_n_grams.get(&pos_n_gram) {
                     score *= occs;
 
                 }
@@ -744,7 +755,7 @@ impl<'a> Matching<'a> {
     }
 }
 
-// use std::mem;
+use std::mem;
 
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -755,9 +766,9 @@ struct QueryParams {
 }
 #[tokio::main]
 async fn main() {
-    // println!("Size of word: {}", mem::size_of::<Word>());
-    // println!("Size of matching: {}", mem::size_of::<Matching>());
-    // println!("Size of Letters: {}", mem::size_of::<Letters>());
+    println!("Size of word: {}", mem::size_of::<Word>());
+    println!("Size of matching: {}", mem::size_of::<Matching>());
+    println!("Size of Letters: {}", mem::size_of::<Letters>());
     // let before = Instant::now();
     // println!("{}", index);
     // println!("Took: {:.2?} to build index", before.elapsed());
@@ -785,6 +796,14 @@ async fn main() {
         });
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 }
+
+// fn main() {
+//     let index: Index = Index::new();
+//     for _ in 0..20i64 {
+//         let words = index.find_anagrams_reverse(String::from("bien le bonjour madame"), SearchType::ROOT);
+//         assert_eq!(words.len(), 9999);
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

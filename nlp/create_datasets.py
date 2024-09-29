@@ -149,7 +149,7 @@ def dict_intersect(d1, d2):
 mappings = defaultdict(int)
 regex_id = re.compile("[0-9]+\W+")
 regex_apostrophes = re.compile("(\W[ldnmst])\W+(\w)")
-
+two_grams = defaultdict(int)
 new_words = defaultdict(int)
 print("Tagging corpus...")
 
@@ -182,7 +182,6 @@ for doc_path in doc_paths:
                     word = token.text.lower()
                     if word not in words_reference:
                         continue
-                    next_token = doc[index + 1]
                     token_pos = token.pos_
                     if token_pos == "PUNCT" or token_pos == "PROPN":
                         continue
@@ -199,9 +198,11 @@ for doc_path in doc_paths:
                             frozendict(token_morph),
                         )
                     ] += 1
+                    next_token = doc[index + 1]
                     next_token_pos = next_token.pos_
                     if next_token_pos == "PUNCT":
                         continue
+                    two_grams[(word, next_token.text.lower())] += 1
                     tup = (
                         token_pos,
                         keep_interesting_morph(token.morph),
@@ -345,3 +346,9 @@ final_vocab = sorted(
     ),
 )
 write_jsonl("vocab.jsonl", final_vocab)
+
+
+with open("2-grams.txt", "w") as f:
+    for k, v in two_grams.items():
+        l = {'2-gram': list(k), 'occ': v}
+        f.write(orjson.dumps(l).decode() + '\n')

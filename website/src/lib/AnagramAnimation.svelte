@@ -170,10 +170,10 @@
 			ctx,
 			draw
 		});
-		// encodeToGif({
-		//     ctx,
-		//     renderFunction: draw
-		// });
+		encodeToGif({
+		    ctx,
+		    renderFunction: draw
+		});
 
 		// const path1 = font.getPath('M', 0, 100, 72);
 		// const pathData1 = path1.toPathData();

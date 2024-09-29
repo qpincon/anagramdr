@@ -10,3 +10,7 @@ Anagrammes: https://github.com/chrplr/openlexicon/blob/master/datasets-info/anag
 
 Plein de datasets:
 https://github.com/chrplr/openlexicon/tree/master/datasets-info#fran%C3%A7ais
+
+
+Idées:
+- Forcer 2-grams ("es" implique "tu" avant, sinon pénalité)
