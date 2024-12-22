@@ -457,7 +457,7 @@ impl Index {
 
         let matchable_words = self.get_matchable_words(&sorted_input, search_type);
         // println!("letters = {}", u8_to_str(&sorted_input));
-        // println!("{} matchable words", matchable_words.len());
+        println!("{} matchable words", matchable_words.len());
         // for (index, word) in matchable_words.iter().rev().enumerate() {
         for word in matchable_words.iter().rev() {
             let searched_word_letters = &self.sorted_letters
@@ -751,7 +751,6 @@ impl<'a> Matching<'a> {
         score
     }
 }
-
 use std::mem;
 
 /// An API error serializable to JSON.
@@ -787,27 +786,49 @@ async fn main() {
     //     })
     //     .with(cors);
     
-    let index: Index = Index::new();
-    let route = warp::path!("query")
-    .and(warp::query::<QueryParams>())
-    .map(move |q: QueryParams| {
-            let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
-            if query_input.len() > 20 {
-                let json = warp::reply::json(&ErrorMessage {
-                    code: StatusCode::BAD_REQUEST.as_u16(),
-                    message: "Too many letters".into(),
-                });
+    bench_estimate();
+
+
+    // let index: Index = Index::new();
+    // let route = warp::path!("query")
+    // .and(warp::query::<QueryParams>())
+    // .map(move |q: QueryParams| {
+    //         let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
+    //         if query_input.len() > 20 {
+    //             let json = warp::reply::json(&ErrorMessage {
+    //                 code: StatusCode::BAD_REQUEST.as_u16(),
+    //                 message: "Too many letters".into(),
+    //             });
             
-                return warp::reply::with_status(json, StatusCode::BAD_REQUEST);
-            }
-            let before = Instant::now();
-            let words = index.find_anagrams_reverse(query_input, q.search_type);
-            println!("Elapsed time: {:.2?}", before.elapsed());
-            return warp::reply::with_status(warp::reply::json(&words), StatusCode::OK);
-        });
-    warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
+    //             return warp::reply::with_status(json, StatusCode::BAD_REQUEST);
+    //         }
+    //         let before = Instant::now();
+    //         let words = index.find_anagrams_reverse(query_input, q.search_type);
+    //         println!("Elapsed time: {:.2?}", before.elapsed());
+    //         return warp::reply::with_status(warp::reply::json(&words), StatusCode::OK);
+    //     });
+    // warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 }
 
+
+fn bench_estimate() {
+    let index: Index = Index::new();
+    let queries = [
+        String::from("montceau les mines"),
+        // String::from("alain chabat le meilleur"),
+        // String::from("le marquis de sade"),
+        // String::from("j'ai la belle vie madame"),
+    ];
+
+    // println!("{}", index);
+    for query in queries {
+        let before = Instant::now();
+        let copy: String = query.clone();
+        let words = index.find_anagrams_reverse(query, SearchType::ROOT);
+        println!("{}: {:.2?}", copy, before.elapsed());
+    }
+            
+}
 // fn main() {
 //     let index: Index = Index::new();
 //     for _ in 0..20i64 {
@@ -830,7 +851,7 @@ mod tests {
     fn char_encoding_decoding() {
         let encoded = char_to_u8('e');
         assert_eq!(encoded, 0b00100000); // e is 5th position, so '4'
-        assert_eq!(u8_to_char(0b00100000), 'e'); // e is 5th position, so '4'
+        assert_eq!(u8_to_char(0b00100000), 'e');
         let encoded = char_to_u8('é');
         assert_eq!(encoded, 0b00100010);
         assert_eq!(u8_to_char(0b00100010), 'é');
@@ -843,6 +864,12 @@ mod tests {
         let encoded = char_to_u8('ë');
         assert_eq!(encoded, 0b00100100);
         assert_eq!(u8_to_char(0b00100100), 'ë');
+    }
+
+    #[test]
+    fn str_encoding_decoding() {
+        let encoded = str_to_u8("montceaulesmines");
+        assert_eq!(u8_to_str(&encoded),"montceaulesmines");
     }
 
     #[test]
@@ -904,6 +931,7 @@ mod tests {
             false
         );
     }
+
     #[test]
     fn encoded_comparison_new_vec() {
         assert_eq!(
