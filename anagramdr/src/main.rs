@@ -13,6 +13,7 @@ use strum_macros::EnumString;
 use unicode_normalization::char::{compose, decompose_canonical};
 use urlencoding::decode;
 use warp::Filter;
+use warp::http::StatusCode;
 const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
 
 #[global_allocator]
@@ -375,15 +376,11 @@ impl Index {
         let mut indexes = (0, 0); // pool, searched
         while indexes.0 < lengths.0 && indexes.1 < lengths.1 {
             if encoded_chars_equal(searched[indexes.1], letter_pool[indexes.0], search_type) {
-                indexes.0 += 1;
                 indexes.1 += 1;
-            } else {
-                if searched[indexes.1] < letter_pool[indexes.0] {
-                    return false;
-                }
-                if searched[indexes.1] > letter_pool[indexes.0] {
-                    indexes.0 += 1;
-                }
+            } 
+            indexes.0 += 1;
+            if indexes.0 == lengths.0 && indexes.1 < lengths.1 {
+                return false;
             }
         }
         indexes.1 == lengths.1
@@ -757,6 +754,12 @@ impl<'a> Matching<'a> {
 
 use std::mem;
 
+/// An API error serializable to JSON.
+#[derive(Serialize)]
+struct ErrorMessage {
+    code: u16,
+    message: String,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct QueryParams {
@@ -789,10 +792,18 @@ async fn main() {
     .and(warp::query::<QueryParams>())
     .map(move |q: QueryParams| {
             let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
+            if query_input.len() > 20 {
+                let json = warp::reply::json(&ErrorMessage {
+                    code: StatusCode::BAD_REQUEST.as_u16(),
+                    message: "Too many letters".into(),
+                });
+            
+                return warp::reply::with_status(json, StatusCode::BAD_REQUEST);
+            }
             let before = Instant::now();
             let words = index.find_anagrams_reverse(query_input, q.search_type);
             println!("Elapsed time: {:.2?}", before.elapsed());
-            warp::reply::json(&words)
+            return warp::reply::with_status(warp::reply::json(&words), StatusCode::OK);
         });
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 }
@@ -843,6 +854,30 @@ mod tests {
                 SearchType::EXACT
             ),
             true
+        );
+        assert_eq!(
+            Index::check_contains_all_letters(
+                &str_to_sorted_encoded("abcdefg"),
+                &str_to_sorted_encoded("efg"),
+                SearchType::EXACT
+            ),
+            true
+        );
+        assert_eq!(
+            Index::check_contains_all_letters(
+                &str_to_sorted_encoded("abcdefg"),
+                &str_to_sorted_encoded("abc"),
+                SearchType::EXACT
+            ),
+            true
+        );
+        assert_eq!(
+            Index::check_contains_all_letters(
+                &str_to_sorted_encoded("abcdefg"),
+                &str_to_sorted_encoded("abh"),
+                SearchType::EXACT
+            ),
+            false
         );
         assert_eq!(
             Index::check_contains_all_letters(

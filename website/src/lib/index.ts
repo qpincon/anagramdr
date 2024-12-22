@@ -19,11 +19,6 @@ export async function encodeToGif ({ctx, renderFunction }) {
     // const context = canvas.getContext('2d');
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
-    // canvas.width = width;
-    // canvas.height = height;
-    // canvas.style.width = '250px';
-    // canvas.style.height = 'auto'
-  
     const fps = 30;
     const duration = 5;
     const totalFrames = Math.ceil(duration * fps);
@@ -31,7 +26,6 @@ export async function encodeToGif ({ctx, renderFunction }) {
     const fpsInterval = 1 / fps;
     const delay = fpsInterval * 1000;
   
-    console.log(totalFrames, 'frames');
     // Setup an encoder that we will write frames into
     const gif = gifenc.GIFEncoder();
     let palette;

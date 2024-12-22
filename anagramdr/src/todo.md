@@ -1,0 +1,5 @@
+- Have max 128 matchables words, transform Matching::matched to u128
+- Change letter_pool to non-vector and store eventual duplicate letters alongside
+  - Tricky as we encode diacritics: store all used letters somewhere and change letter_pool to indexes to those letters?
+- Compute best permutations at the end
+- Use parallel processing for best permutations
