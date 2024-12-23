@@ -1,7 +1,6 @@
 use itertools::Itertools;
 use serde_json::Value;
 use serde_derive::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -14,9 +13,10 @@ use unicode_normalization::char::{compose, decompose_canonical};
 use urlencoding::decode;
 use warp::Filter;
 use warp::http::StatusCode;
+use rustc_hash::FxHashMap;
+
 const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
 const MAX_EXPR_SIZE: usize = 6;
-
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
@@ -155,8 +155,8 @@ struct Index {
     /** Contain all the words of the entry vocab */
     word_defs: Vec<Word>,
     mean_word_size: f32,
-    tagging_stats: HashMap<PosMorph, HashMap<PosMorph, f32>>,
-    pos_n_grams: HashMap<PosTagNGram, f32>,
+    tagging_stats: FxHashMap<(PosMorph, PosMorph), f32>,
+    pos_n_grams: FxHashMap<PosTagNGram, f32>,
 }
 
 #[derive(PartialEq, EnumString, Copy, Clone, Default, Serialize, Deserialize, Debug)]
@@ -261,8 +261,8 @@ impl Index {
             sorted_letters: vec![],
             original_letters: vec![],
             mean_word_size: 0.0,
-            tagging_stats: HashMap::new(),
-            pos_n_grams: HashMap::new(),
+            tagging_stats: FxHashMap::default(),
+            pos_n_grams: FxHashMap::default(),
         };
 
         let vocab_lines: io::Lines<io::BufReader<File>> =
@@ -320,18 +320,9 @@ impl Index {
                     pos: pos_2,
                     morph: morph_2,
                 };
+                let key = (first, second);
                 let occurences: f32 = (stat["nb"].as_u64().unwrap() as f32).sqrt();
-                index
-                    .tagging_stats
-                    .entry(first)
-                    .and_modify(|dest_map| {
-                        dest_map.insert(second, occurences);
-                    })
-                    .or_insert({
-                        let mut new_map = HashMap::new();
-                        new_map.insert(second, occurences);
-                        new_map
-                    });
+                index.tagging_stats.insert(key, occurences);
             }
         }
 
@@ -578,12 +569,14 @@ impl Index {
         // println!("Finished search in {:.2?}", start.elapsed());
         // println!("{} candidate group", candidates.len());
         
+        let start_scoring = Instant::now();
         let str_with_scores = candidates
             .into_iter()
             .filter(|m| m.is_complete)
             .map(|m| m.best_permutation(&self, &matchable_words))
             .sorted_by(|a, b| b.1.partial_cmp(&a.1).unwrap())
             .collect();
+        println!("Time to find best permutations: {:.2?}", start_scoring.elapsed());
         // println!(
         //     "Added candidates {} (scratch) {} (cloned) ",
         //     nb_added_cand_scratch, nb_added_cand_cand
@@ -736,19 +729,16 @@ impl<'a> Matching {
                         morph: *first_morph,
                         pos: first.pos_tag,
                     };
-                    let dest_map = index.tagging_stats.get(&first_pos_morph);
-                    if dest_map.is_none() {
-                        continue;
-                    }
                     let second_pos_morph = PosMorph {
                         morph: *second_morph,
                         pos: second.pos_tag,
                     };
-                    let stats_occ = dest_map.unwrap().get(&second_pos_morph);
-                    if stats_occ.is_none() {
+                    let key = (first_pos_morph, second_pos_morph);
+                    let value = index.tagging_stats.get(&key);
+                    if value.is_none() {
                         continue;
                     }
-                    let occ = stats_occ.unwrap();
+                    let occ = value.unwrap();
                     if *occ > best_inner_score {
                         best_inner_score = *occ;
                     };
@@ -806,28 +796,28 @@ async fn main() {
     //     })
     //     .with(cors);
     
-    bench_estimate();
+    // bench_estimate();
 
 
-    // let index: Index = Index::new();
-    // let route = warp::path!("query")
-    // .and(warp::query::<QueryParams>())
-    // .map(move |q: QueryParams| {
-    //         let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
-    //         if query_input.len() > 20 {
-    //             let json = warp::reply::json(&ErrorMessage {
-    //                 code: StatusCode::BAD_REQUEST.as_u16(),
-    //                 message: "Too many letters".into(),
-    //             });
+    let index: Index = Index::new();
+    let route = warp::path!("query")
+    .and(warp::query::<QueryParams>())
+    .map(move |q: QueryParams| {
+            let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
+            if query_input.len() > 20 {
+                let json = warp::reply::json(&ErrorMessage {
+                    code: StatusCode::BAD_REQUEST.as_u16(),
+                    message: "Too many letters".into(),
+                });
             
-    //             return warp::reply::with_status(json, StatusCode::BAD_REQUEST);
-    //         }
-    //         let before = Instant::now();
-    //         let words = index.find_anagrams_reverse(query_input, q.search_type);
-    //         println!("Elapsed time: {:.2?}", before.elapsed());
-    //         return warp::reply::with_status(warp::reply::json(&words), StatusCode::OK);
-    //     });
-    // warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
+                return warp::reply::with_status(json, StatusCode::BAD_REQUEST);
+            }
+            let before = Instant::now();
+            let words = index.find_anagrams_reverse(query_input, q.search_type);
+            println!("Elapsed time: {:.2?}", before.elapsed());
+            return warp::reply::with_status(warp::reply::json(&words), StatusCode::OK);
+        });
+    warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 }
 
 
