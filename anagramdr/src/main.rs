@@ -14,6 +14,7 @@ use urlencoding::decode;
 use warp::Filter;
 use warp::http::StatusCode;
 use rustc_hash::FxHashMap;
+use rayon::prelude::*;
 
 const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
 const MAX_EXPR_SIZE: usize = 6;
@@ -570,12 +571,14 @@ impl Index {
         // println!("{} candidate group", candidates.len());
         
         let start_scoring = Instant::now();
-        let str_with_scores = candidates
-            .into_iter()
+        let mut str_with_scores: Vec<(String, f32)> = candidates
+            .into_par_iter()
+            // .into_iter()
             .filter(|m| m.is_complete)
             .map(|m| m.best_permutation(&self, &matchable_words))
-            .sorted_by(|a, b| b.1.partial_cmp(&a.1).unwrap())
             .collect();
+        str_with_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            // .sorted_by(|a, b| b.1.partial_cmp(&a.1).unwrap())
         println!("Time to find best permutations: {:.2?}", start_scoring.elapsed());
         // println!(
         //     "Added candidates {} (scratch) {} (cloned) ",
