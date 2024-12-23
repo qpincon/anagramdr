@@ -15,6 +15,7 @@ use urlencoding::decode;
 use warp::Filter;
 use warp::http::StatusCode;
 const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
+const MAX_EXPR_SIZE: usize = 6;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -443,7 +444,7 @@ impl Index {
      * TODO:
      * - If we have a lot of words matching letters, rank them by occurence in some reference corpora 
      */
-    fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Vec<String> {
+    fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Vec<(String, f32)> {
         let max_cand_to_find = 10000;
         // let mut nb_iter = 0;
         let mut nb_found = 0;
@@ -458,8 +459,9 @@ impl Index {
         let matchable_words = self.get_matchable_words(&sorted_input, search_type);
         // println!("letters = {}", u8_to_str(&sorted_input));
         println!("{} matchable words", matchable_words.len());
-        // for (index, word) in matchable_words.iter().rev().enumerate() {
-        for word in matchable_words.iter().rev() {
+        for (index, word) in matchable_words.iter().enumerate().rev() {
+            // println!("{}, {:?}", index, word.letters_original_range);
+        // for word in matchable_words.iter().rev() {
             let searched_word_letters = &self.sorted_letters
                 [word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
             let cur_word_length = word.letters_sorted_range.end - word.letters_sorted_range.start;
@@ -485,7 +487,7 @@ impl Index {
             let nb_cand = candidates.len();
             /* Search new candidates among current ones */
             for cand_index in 0..nb_cand {
-                let candidate: &Matching<'_> = &candidates[cand_index];
+                let candidate: &Matching = &candidates[cand_index];
                 // nb_iter += 1;
                 if candidate.is_complete {
                     continue;
@@ -519,10 +521,11 @@ impl Index {
                     );
                     new_cand.is_complete = new_cand.letter_pool.len() == 0;
                     new_cand.bloom_letters = encoded_letters_to_bloom_u32(&new_cand.letter_pool);
-                    new_cand.matched.push(word);
+                    new_cand.matched[new_cand.matched_size as usize] = index as u16;
+                    new_cand.matched_size += 1;
                     if new_cand.is_complete {
                         nb_found += 1;
-                        new_cand.best_permutation(self);
+                        // new_cand.best_permutation(self);
                     }
                     if nb_found == max_cand_to_find {
                         enough_found = true;
@@ -554,16 +557,19 @@ impl Index {
                 );
                 let length = remaining_letters.len();
                 let bloom_letters = encoded_letters_to_bloom_u32(&remaining_letters);
-                let mut new_candidate = Matching {
+                let mut new_matched = [u16::MAX; MAX_EXPR_SIZE];
+                new_matched[0] = index as u16;
+                let new_candidate = Matching {
                     letter_pool: remaining_letters,
                     is_complete: length == 0,
-                    matched: vec![word],
-                    best_perm_score: 0.0,
+                    matched: new_matched,
+                    matched_size: 1,
+                    // best_perm_score: 0.0,
                     bloom_letters,
                 };
                 if new_candidate.is_complete {
                     nb_found += 1;
-                    new_candidate.best_permutation(self);
+                    // new_candidate.best_permutation(self);
                 }
                 candidates.push(new_candidate);
                 // nb_added_cand_scratch += 1;
@@ -571,31 +577,12 @@ impl Index {
         }
         // println!("Finished search in {:.2?}", start.elapsed());
         // println!("{} candidate group", candidates.len());
-        let mut completed: Vec<Matching> = candidates
+        
+        let str_with_scores = candidates
             .into_iter()
-            .filter(|matched| matched.letter_pool.is_empty())
-            .collect();
-        completed.sort_by(|a, b| {
-            // println!("{:?}, {:?}", a, b);
-            b.best_perm_score.partial_cmp(&a.best_perm_score).unwrap()
-        });
-
-        let reconstituted: Vec<String> = completed
-            .iter()
-            .map(|matched| {
-                matched
-                    .matched
-                    .iter()
-                    .map(|w| {
-                        u8_to_str(
-                            &self.original_letters[w.letters_original_range.start as usize
-                                ..w.letters_original_range.end as usize],
-                        )
-                    })
-                    .join(" ")
-                // str.push_str(&format!(" {}", matched.best_perm_score));
-                // str
-            })
+            .filter(|m| m.is_complete)
+            .map(|m| m.best_permutation(&self, &matchable_words))
+            .sorted_by(|a, b| b.1.partial_cmp(&a.1).unwrap())
             .collect();
         // println!(
         //     "Added candidates {} (scratch) {} (cloned) ",
@@ -608,7 +595,7 @@ impl Index {
 
         // println!("{} iterations", nb_iter);
         // println!("Total time: {:.2?}", start.elapsed());
-        reconstituted
+        str_with_scores
     }
 
 }
@@ -643,17 +630,8 @@ impl fmt::Display for Index {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Matching<'a> {
-    letter_pool: Letters,
-    is_complete: bool,
-    bloom_letters: u32,
-    matched: Vec<&'a Word>,
-    best_perm_score: f32,
-}
-
-fn pos_tuple_from_words(words: &[&&Word]) -> PosTagNGram {
-    let mut pos: Vec<Option<PosTag>> = words.iter().map(|x| Some(x.pos_tag)).collect();
+fn pos_tuple_from_words(words_indexes: &Vec<&u16>, matchable_words: &[&Word]) -> PosTagNGram {
+    let mut pos: Vec<Option<PosTag>> = words_indexes.iter().map(|x| Some(matchable_words[**x as usize ] .pos_tag)).collect();
     while pos.len() != 4 {
         if pos.len() < 4 {
             pos.push(None);
@@ -664,25 +642,47 @@ fn pos_tuple_from_words(words: &[&&Word]) -> PosTagNGram {
     pos.into_iter().collect_tuple().unwrap()
 }
 
-impl<'a> Matching<'a> {
+#[derive(Debug, Clone)]
+struct Matching {
+    letter_pool: Letters,
+    is_complete: bool,
+    bloom_letters: u32,
+    /** No more than MAX_EXPR_SIZE words can be matched. Indexes to "matchable_words" */
+    matched: [u16; MAX_EXPR_SIZE],
+    matched_size: u8,
+    // matched: Vec<&'a Word>,
+    // best_perm_score: f32,
+}
+
+
+
+impl<'a> Matching {
 
     fn min_nb_words(&self, word_length: u32) -> f32 {
-        (self.matched.len() as f32) + (self.letter_pool.len() as f32 / word_length as f32).ceil()
+        (self.matched_size as f32) + (self.letter_pool.len() as f32 / word_length as f32).ceil()
     }
 
-    fn best_permutation(&mut self, index: &Index) {
+
+    // fn iter_matches<'b>(
+    //     &'b self,
+    //     matchables_words: &'b[Word],
+    // ) -> impl Iterator<Item = &'b Word> + 'b {
+    //     self.matched.iter().map(move |&i| &matchables_words[i as usize])
+    // }
+
+    fn best_permutation(&self, index: &Index, matchable_words: &[&Word]) -> (String, f32) {
         let mut best_perm = vec![];
         let mut best_score = -1.0;
-        if self.matched.len() == 1 {
-            self.best_perm_score = f32::MAX;
-            return;
+        if self.matched_size == 1 {
+            // self.best_perm_score = f32::MAX;
+            return (self.matched_to_string(&self.matched, index, matchable_words), f32::MAX);
         }
-        self.matched
+        self.matched[..self.matched_size as usize]
             .iter()
-            .permutations(self.matched.len())
-            .for_each(|combination| {
-                let mut score = Matching::score_combination(&combination, index);
-                let pos_n_gram = pos_tuple_from_words(&combination);
+            .permutations(self.matched_size as usize)
+            .for_each(|combination: Vec<&u16>| {
+                let mut score = Matching::score_combination(&combination, index, matchable_words);
+                let pos_n_gram: (Option<PosTag>, Option<PosTag>, Option<PosTag>, Option<PosTag>) = pos_tuple_from_words(&combination, &matchable_words);
                 if let Some(occs) = index.pos_n_grams.get(&pos_n_gram) {
                     score *= occs;
 
@@ -692,23 +692,43 @@ impl<'a> Matching<'a> {
                     best_perm = combination;
                 }
             });
-        self.matched = best_perm.into_iter().cloned().collect();
         /* Boost 2-word expressions */
         if self.matched.len() == 2 {
             best_score *= 15.0;
         }
-        self.best_perm_score = best_score / (self.matched.len().pow(4) as f32);
+        
+        let best_perm_score = best_score / (self.matched.len().pow(4) as f32);
+        (self._matched_to_string(&best_perm, index, matchable_words), best_perm_score)
+        // (best_perm_str, best_perm_score)
     }
 
+    fn matched_to_string(&self, matched: &[u16], index: &Index, matchable_words: &[&Word]) -> String {
+        matched.iter()
+            .take(self.matched_size as usize)
+            .map(|word_index| {
+                let w: &Word = &matchable_words[*word_index as usize];
+                u8_to_str(
+                    &index.original_letters[w.letters_original_range.start as usize
+                        ..w.letters_original_range.end as usize],
+                )
+            })
+            .join(" ")
+
+    }
+
+    fn _matched_to_string(&self, matched: &[&u16], index: &Index, matchable_words: &[&Word]) -> String {
+        let m: Vec<u16> = matched.iter().map(|&&x| x).collect();
+        self.matched_to_string(&m, index, matchable_words)
+    }
     /**
      * Expections:
      * - If last word is ADP, DET or PRON, penalize current combination
      */
-    fn score_combination(combination: &[&&Word], index: &Index) -> f32 {
+    fn score_combination(combination: &Vec<&u16>, index: &Index, matchable_words: &[&Word]) -> f32 {
         let mut score = 0.0;
         for window in combination.windows(2) {
-            let first = window[0];
-            let second = window[1];
+            let first = &matchable_words[*window[0] as usize];
+            let second = &matchable_words[*window[1] as usize];
             let mut best_inner_score = 0.0;
             for first_morph in &first.morph_tags {
                 for second_morph in &second.morph_tags {
@@ -741,7 +761,7 @@ impl<'a> Matching<'a> {
             // );
             score += best_inner_score;
         }
-        let last = combination.last().unwrap();
+        let last = &matchable_words[**combination.last().unwrap() as usize];
         if last.pos_tag == PosTag::ADP
             || last.pos_tag == PosTag::DET
             || last.pos_tag == PosTag::PRON
@@ -815,9 +835,9 @@ fn bench_estimate() {
     let index: Index = Index::new();
     let queries = [
         String::from("montceau les mines"),
-        // String::from("alain chabat le meilleur"),
-        // String::from("le marquis de sade"),
-        // String::from("j'ai la belle vie madame"),
+        String::from("alain chabat le meilleur"),
+        String::from("le marquis de sade"),
+        String::from("j'ai la belle vie madame"),
     ];
 
     // println!("{}", index);
