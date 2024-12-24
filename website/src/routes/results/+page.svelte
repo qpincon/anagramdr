@@ -2,24 +2,20 @@
 	import { onMount, tick } from 'svelte';
 	import { loadAnagrams } from '$lib';
 	import { goto } from '$app/navigation';
+	import backImg from '$lib/img/back.svg';
 
-	import AnagramAnimation from '$lib/AnagramAnimation.svelte';
+	import GifExporter from '../../lib/GifExporter.svelte';
 	// import Test from '$lib/VecTest.svelte';
 	// import InfiniteLoading from 'svelte-infinite-loading';
 
-
 	let results = [];
-	let highlightedResult;
-	let animationComponent;
-	// let displayedResults = [];
+	let highlightedResult = null;
 
-
-	/** @type {import('./$types').PageData} */
 	export let data;
 	let frozenInput;
-	
+
 	onMount(async () => {
-		frozenInput = {...data};
+		frozenInput = { ...data };
 		await refreshResults(data);
 	});
 
@@ -27,76 +23,159 @@
 		const params = new URLSearchParams();
 		params.set('input', data.input);
 		params.set('search_type', 'ROOT');
-		goto(`/results?${params.toString()}`); 
+		goto(`/results?${params.toString()}`);
+		refreshResults();
 	}
-	
+
 	async function refreshResults() {
+		highlightedResult = null;
 		console.log('data=', data);
-		results =  await loadAnagrams(data);
+		results = await loadAnagrams(data);
 		console.log(results);
 	}
-	function onSearchKeyDown(e) {
+
+	function onSearchKeyUp(e) {
 		if (e.key === 'Enter') goToResults();
 	}
 
 	async function changeSelectedResult(result) {
-		highlightedResult = result;
+		highlightedResult = result[0];
 		await tick();
-		animationComponent.startAnimation();
 	}
 </script>
 
 <main>
-	<header class="results-header">
-		<h1 class="logo">
-			<span class="commissioner-bold">anagra</span><i class="fuzzy-bubbles-bold">mdr</i>
-		</h1>
-		<input class="search" on:keydown="{onSearchKeyDown}" bind:value={data.input} type="search" placeholder="Insérez une expression!" />
+	<header >
+		<a href="/">
+			<h1 class="logo">
+				<span class="dynapuff">anagra</span><i class="fuzzy-bubbles-bold mdr"
+					><span>m</span><span>d</span><span>r</span></i
+				>
+			</h1>
+		</a>
+		<input
+			class="search"
+			on:keydown={onSearchKeyUp}
+			bind:value={data.input}
+			type="search"
+			placeholder="Insérez une expression!"
+		/>
 	</header>
 
-	<!-- <Test></Test> -->
-	
-    
-	<div>{results.length} results</div>
-	{#if highlightedResult}
-		<span>{highlightedResult}</span>
-		<AnagramAnimation bind:this={animationComponent} sourceText="{frozenInput.input}" targetText="{highlightedResult}"></AnagramAnimation>
-	{/if}
-    <div class="results">
+	<div class="results">
+		<div>{results.length} results</div>
 		{#each results as result}
-			<div on:click={async () => {await changeSelectedResult(result)}} class="result"> { result } </div>
+			<div
+				on:click={async () => {
+					await changeSelectedResult(result);
+				}}
+				class="result"
+			>
+				{result[0]}
+			</div>
 		{/each}
-    </div>
+	</div>
 
+	<div class="side-peek" class:opened={highlightedResult !== null}>
+		{#if highlightedResult}
+			<div class="side-content">
+				<img
+					class="icon back"
+					on:click={() => (highlightedResult = null)}
+					src={backImg}
+					alt=""
+					title="Close panel"
+				/>
+				<GifExporter origin={frozenInput.input} destination={highlightedResult}></GifExporter>
+			</div>
+		{/if}
+	</div>
 </main>
 
 <style lang="scss">
 	header {
 		padding: 10px;
-		background-color: rgba(255, 255, 255, 0.199);
+		background-color: #f1dbbb;
 		border-bottom: 1px solid rgba(145, 121, 86, 0.514);
-	}
-	.results-header{
+		position: relative;
+		z-index: 10;
 		display: flex;
-		justify-content: center;
+		justify-content: flex-start;
 		align-items: center;
+		& a {
+			text-decoration: none;
+		}
+	}
+	.logo {
+		margin: auto 0 auto 0;
+	}
+	.back {
+		margin: 5px;
+		display: none;
+	}
+
+	.icon {
+		width: 16px;
+		height: 16px;
+		cursor: pointer;
 	}
 
 	.search {
-		margin-right: auto;
-		margin-left: 3rem;
 		max-width: 25rem;
 		height: 45px;
+		margin: auto auto auto 5rem;
 	}
-	.logo {
-		width: 11rem;
-	}
+
 	.results {
-		margin: 0 15rem ;
+		margin: 0 0 0 17rem;
 		padding-top: 1rem;
 	}
+
 	.result {
 		font-size: 30px;
 		padding: 5px;
+		cursor: pointer;
+	}
+
+	.side-peek {
+		position: fixed;
+		top: 0px;
+		right: 0px;
+		bottom: 0px;
+		max-width: 100vw;
+		width: 0px;
+		&.opened {
+			width: min(500px, 100vw);
+		}
+		& .side-content {
+			margin-top: 90px;
+		}
+		z-index: 1;
+		transition-property: width, transform;
+		transition-duration: 200ms;
+		transition-delay: 0ms;
+		transition-timing-function: ease;
+		flex-direction: column;
+		display: flex;
+		margin-left: auto;
+		border-left: 1px solid grey;
+	}
+
+	@media screen and (max-width: 400px) {
+		.logo {
+			display: none;
+		}
+	}
+	@media screen and (max-width: 1000px) {
+		.results {
+			margin: 0 0 0 5rem;
+		}
+		.back {
+			display: block;
+		}
+		.side-peek.opened {
+			background-color: #f1dbbb;
+			width: 100vw !important;
+		}
 	}
 </style>

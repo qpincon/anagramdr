@@ -4,8 +4,17 @@
 - [x] Compute best permutations at the end
 - [x] Use parallel processing for best permutations
 - [x] Pick at random matchables words while length > 1000
-- [ ] Prevent expressions with lots of low letters words
+- [x] Score less expressions with lots of low letters words
 
+Design:
+- [ ] Renverser fleche pour fermer, ajouter "retour"
+- [ ] Ajouter color picker pour la couleur du gif
+- [ ] Gérer les erreurs côté back
+- [ ] Ajouter un endpoint pour l'export pour tracking
+- [ ] Ajouter page pour juste GifExporter
+- [ ] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi
+- [ ] Garder le focus quand on lance une recherche pour pouvoir re-generer facilement
+- [ ] Ajouter options avancées: recherche exacte, recherche avec un mot en particulier
 
 Baseline:
 

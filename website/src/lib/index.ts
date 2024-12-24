@@ -13,7 +13,7 @@ function download (buf, filename, type) {
     anchor.href = url;
     anchor.download = filename;
     anchor.click();
-  };
+};
   
 export async function encodeToGif ({ctx, renderFunction }) {
     // const context = canvas.getContext('2d');
@@ -61,6 +61,10 @@ export async function encodeToGif ({ctx, renderFunction }) {
     // Get a direct typed array view into the buffer to avoid copying it
     const buffer = gif.bytesView();
     download(buffer, 'animation.gif', { type: 'image/gif' });
-  }
+}
 
-
+export function areStringsAnagrams(s1: string, s2: string): boolean {
+  const diacriticsRemoved1 = s1.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').split('').sort().join('').replaceAll(' ', '');
+  const diacriticsRemoved2 = s2.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').split('').sort().join('').replaceAll(' ', '');
+  return diacriticsRemoved1 === diacriticsRemoved2;
+}

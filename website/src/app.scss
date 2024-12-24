@@ -28,7 +28,7 @@ body > main {
 .bg-1 {
   background-image: linear-gradient(
     130deg,
-    hsl(32deg 100% 39%) 0%,
+    rgb(199, 106, 0) 0%,
     hsl(33deg 73% 46%) 11%,
     hsl(35deg 61% 52%) 22%,
     hsl(37deg 60% 57%) 33%,
@@ -64,49 +64,29 @@ body > main {
 }
 
 
-.bona-nova-regular {
-  font-family: "Bona Nova", serif;
-  font-weight: 400;
-  font-style: normal;
-}
-
-
-.fuzzy-bubbles-regular {
-  font-family: "Fuzzy Bubbles", sans-serif;
-  font-weight: 400;
-  font-style: normal;
-}
-
-.fuzzy-bubbles-bold {
-  font-family: "Fuzzy Bubbles", sans-serif;
-  font-weight: 700;
-}
-
-
-html, .commissioner {
-  font-family: "Commissioner", sans-serif;
-  font-optical-sizing: auto;
-  font-weight: 300;
-  font-style: normal;
-  font-variation-settings:
-    "slnt" 0,
-    "FLAR" 0,
-    "VOLM" 0;
-}
-
-.commissioner-bold {
-  font-family: "Commissioner", sans-serif;
-  font-optical-sizing: auto;
-  font-weight: 550;
-  font-style: normal;
-  font-variation-settings:
-    "slnt" 0,
-    "FLAR" 0,
-    "VOLM" 0;
-}
-
 .logo {
   pointer-events: none;
   user-select: none;
+}
 
+.mdr {
+  font-size: 46px;
+  // & > span:first-child {
+  //   color: #ffbfbd
+  // }
+  // & > span:nth-child(2) {
+  //   color: #ff8888;
+  // }
+  // & > span:nth-child(3) {
+  //   color: #c35356;
+  // }
+  & > span:first-child {
+    color: #7e2e00
+  }
+  & > span:nth-child(2) {
+    color: #006b5f;
+  }
+  & > span:nth-child(3) {
+    color: #63baab;
+  }
 }
