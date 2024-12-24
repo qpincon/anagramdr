@@ -467,7 +467,6 @@ impl Index {
      */
     fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Vec<(String, f32)> {
         let max_cand_to_find = 10000;
-        // let mut nb_iter = 0;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
         let mut candidates: Vec<Matching> = vec![];
@@ -483,7 +482,6 @@ impl Index {
             /* Search new candidates among current ones */
             for cand_index in 0..nb_cand {
                 let candidate: &Matching = &candidates[cand_index];
-                // nb_iter += 1;
                 if candidate.is_complete {
                     continue;
                 }
@@ -550,7 +548,6 @@ impl Index {
                     nb_found += 1;
                 }
                 candidates.push(new_candidate);
-                // nb_added_cand_scratch += 1;
             }
         }
         
@@ -619,8 +616,6 @@ struct Matching {
     /** No more than MAX_EXPR_SIZE words can be matched. Indexes to "matchable_words" */
     matched: [u16; MAX_EXPR_SIZE],
     matched_size: u8,
-    // matched: Vec<&'a Word>,
-    // best_perm_score: f32,
 }
 
 
@@ -710,11 +705,6 @@ impl<'a> Matching {
                     };
                 }
             }
-            // println!("'{}' and '{}' scored {}",
-            //     index.u8_to_str(&index.original_letters[first.letters_original_range.start as usize..first.letters_original_range.end as usize]),
-            //     index.u8_to_str(&index.original_letters[second.letters_original_range.start as usize..second.letters_original_range.end as usize]),
-            //     best_inner_score,
-            // );
             score += best_inner_score;
         }
         let last = &matchable_words[**combination.last().unwrap() as usize];
