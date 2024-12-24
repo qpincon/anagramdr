@@ -15,9 +15,13 @@ use warp::Filter;
 use warp::http::StatusCode;
 use rustc_hash::FxHashMap;
 use rayon::prelude::*;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
 const MAX_EXPR_SIZE: usize = 6;
+const MAX_MATCHABLE_WORDS: usize = 600;
+
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
@@ -105,7 +109,6 @@ struct Word {
     pos_tag: PosTag,
     morph_tags: Vec<Morph>,
     bloom_letters: u32,
-    is_prio: bool,
 }
 
 // remove all elements from original that are in matched_words
@@ -139,7 +142,7 @@ type PosTagNGram = (
     Option<PosTag>,
 );
 
-static PRIORITY_WORDS:  &'static [&'static str] = &["ce", "cet", "cette", "un", "une", "le", "la", "de", "du", "sur"];
+// static PRIORITY_WORDS:  &'static [&'static str] = &["ce", "cet", "cette", "un", "une", "le", "la", "de", "du", "sur"];
 
 #[derive(Clone)]
 struct Index {
@@ -296,7 +299,7 @@ impl Index {
                     pos_tag: PosTag::from_str(word_def["pos"].as_str().unwrap()).unwrap(),
                     morph_tags: Index::build_morph_tags(word_def["morph"].as_array().unwrap()),
                     bloom_letters,
-                    is_prio: PRIORITY_WORDS.iter().find(|&&x| x.eq(word)).is_some(),
+                    // is_prio: PRIORITY_WORDS.iter().find(|&&x| x.eq(word)).is_some(),
                 };
                 index.word_defs.push(new_word_def);
             }
@@ -415,7 +418,7 @@ impl Index {
 
     // TODO: use is_prio to move up the letters in the array for us to be sure to include it in the search
     fn get_matchable_words(&self, input_letters: &[u8], search_type: SearchType) -> Vec<&Word> {
-        self.word_defs
+        let words: Vec<&Word> = self.word_defs
             .iter()
             .filter(|w: &&Word| {
                 Index::check_contains_all_letters(
@@ -425,7 +428,12 @@ impl Index {
                     search_type,
                 )
             })
-            .collect()
+            .collect();
+        if words.len() <= MAX_MATCHABLE_WORDS {
+            return words;
+        }
+        let mut rng = thread_rng();
+        words.choose_multiple(&mut rng, MAX_MATCHABLE_WORDS).cloned().collect()
     }
 
     /**
@@ -485,17 +493,16 @@ impl Index {
                     continue;
                 }
                 /* Only add new if the potential total of words is small enough relative to input size  */
-                let should_add_new = input_length < 20
-                    || candidates.len() < 300
-                    || cur_word_length > 4
-                    || (candidate.min_nb_words(cur_word_length) / input_length as f32) < 0.3;
-                if !should_add_new {
-                    continue;
-                }
+                // let should_add_new = candidates.len() < 300
+                //     || cur_word_length > 4
+                //     || (candidate.min_nb_words(cur_word_length) / input_length as f32) < 0.3;
+                // if !should_add_new {
+                //     continue;
+                // }
                 let bloom_ok: bool =
                     (candidate.bloom_letters & word.bloom_letters) == word.bloom_letters;
                 /* Create new candidate with the matching letters removed from the pool */
-                let check_pass = bloom_ok
+                let check_pass = candidate.matched_size < MAX_EXPR_SIZE as u8 && bloom_ok
                     && Index::check_contains_all_letters(
                         &candidate.letter_pool,
                         searched_word_letters,
@@ -556,7 +563,6 @@ impl Index {
                     is_complete: length == 0,
                     matched: new_matched,
                     matched_size: 1,
-                    // best_perm_score: 0.0,
                     bloom_letters,
                 };
                 if new_candidate.is_complete {
@@ -584,10 +590,7 @@ impl Index {
         //     "Added candidates {} (scratch) {} (cloned) ",
         //     nb_added_cand_scratch, nb_added_cand_cand
         // );
-        // println!(
-        //     "Found {} anagrams",
-        //     completed.iter().filter(|c| c.is_complete()).count()
-        // );
+        println!("Found {} anagrams", str_with_scores.len());
 
         // println!("{} iterations", nb_iter);
         // println!("Total time: {:.2?}", start.elapsed());
@@ -670,7 +673,6 @@ impl<'a> Matching {
         let mut best_perm = vec![];
         let mut best_score = -1.0;
         if self.matched_size == 1 {
-            // self.best_perm_score = f32::MAX;
             return (self.matched_to_string(&self.matched, index, matchable_words), f32::MAX);
         }
         self.matched[..self.matched_size as usize]
@@ -688,14 +690,17 @@ impl<'a> Matching {
                     best_perm = combination;
                 }
             });
-        /* Boost 2-word expressions */
-        if self.matched.len() == 2 {
-            best_score *= 15.0;
+        let only_small_words = self.matched[..self.matched_size as usize].iter()
+            .all(|word_index| {
+                let word = matchable_words[*word_index as usize];
+                word.letters_sorted_range.end - word.letters_sorted_range.start < 4
+            });
+        let mut best_perm_score = best_score / (self.matched.len().pow(2) as f32);
+        /* Penalize expression with only small words */
+        if only_small_words {
+            best_perm_score = best_perm_score / 2.0;
         }
-        
-        let best_perm_score = best_score / (self.matched.len().pow(4) as f32);
         (self._matched_to_string(&best_perm, index, matchable_words), best_perm_score)
-        // (best_perm_str, best_perm_score)
     }
 
     fn matched_to_string(&self, matched: &[u16], index: &Index, matchable_words: &[&Word]) -> String {
@@ -709,7 +714,6 @@ impl<'a> Matching {
                 )
             })
             .join(" ")
-
     }
 
     fn _matched_to_string(&self, matched: &[&u16], index: &Index, matchable_words: &[&Word]) -> String {
@@ -759,11 +763,12 @@ impl<'a> Matching {
             || last.pos_tag == PosTag::DET
             || last.pos_tag == PosTag::PRON
         {
-            score /= 2.0;
+            score /= 4.0;
         }
         score
     }
 }
+
 use std::mem;
 
 /// An API error serializable to JSON.

@@ -3,7 +3,8 @@
   - Tricky as we encode diacritics: store all used letters somewhere and change letter_pool to indexes to those letters?
 - [x] Compute best permutations at the end
 - [x] Use parallel processing for best permutations
-- [ ] Pick at random matchables words while length > 1000
+- [x] Pick at random matchables words while length > 1000
+- [ ] Prevent expressions with lots of low letters words
 
 
 Baseline:
@@ -75,3 +76,21 @@ le marquis de sade: 126.75ms
 286 matchable words
 Time to find best permutations: 10.99ms
 j'ai la belle vie madame: 79.19ms
+
+
+1000 matchables words:
+Time to find best permutations: 15.01ms
+Found 9999 anagrams
+montceau les mines: 118.33ms
+1000 matchable words
+Time to find best permutations: 19.73ms
+Found 9999 anagrams
+alain chabat le meilleur: 360.06ms
+1000 matchable words
+Time to find best permutations: 15.90ms
+Found 9999 anagrams
+le marquis de sade: 394.80ms
+286 matchable words
+Time to find best permutations: 9.87ms
+Found 9999 anagrams
+j'ai la belle vie madame: 81.65ms
