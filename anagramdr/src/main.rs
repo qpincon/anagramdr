@@ -21,6 +21,7 @@ use rand::thread_rng;
 const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuûüùvwxyz";
 const MAX_EXPR_SIZE: usize = 6;
 const MAX_MATCHABLE_WORDS: usize = 600;
+const NB_BIG_WORDS_INCLUDED : usize = 30;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -416,7 +417,9 @@ impl Index {
             .collect()
     }
 
-    // TODO: use is_prio to move up the letters in the array for us to be sure to include it in the search
+    /**
+     * Get matchable words, always including words containing the most letters
+     */
     fn get_matchable_words(&self, input_letters: &[u8], search_type: SearchType) -> Vec<&Word> {
         let words: Vec<&Word> = self.word_defs
             .iter()
@@ -432,15 +435,33 @@ impl Index {
         if words.len() <= MAX_MATCHABLE_WORDS {
             return words;
         }
+
+        /* Always include NB_BIG_WORDS_INCLUDED bigger words */
+
         let mut rng = thread_rng();
-        words.choose_multiple(&mut rng, MAX_MATCHABLE_WORDS).cloned().collect()
+        let mut result = Vec::new();
+
+        let suffix_size = NB_BIG_WORDS_INCLUDED.min(words.len());
+        let start_suffix = words.len().saturating_sub(suffix_size);
+        let suffix = &words[start_suffix..];
+        result.extend_from_slice(suffix);
+        let remaining = &words[..start_suffix];
+        let additional_size = (MAX_MATCHABLE_WORDS - suffix_size).min(remaining.len());
+        let additional_elements = remaining.choose_multiple(&mut rng, additional_size);
+        result.extend(additional_elements.cloned());
+        result.sort_by(|a, b| {
+            let length_a: u32 = a.letters_sorted_range.end - a.letters_sorted_range.start ;
+            let length_b: u32 = b.letters_sorted_range.end - b.letters_sorted_range.start;
+            return length_a.partial_cmp(&length_b).unwrap();
+        });
+        result
+
     }
 
     /**
      * This algorithm is similar to the construction of a powerset of all words containing provided letters. See https://en.wikipedia.org/wiki/Power_set
      * The size of a powerset is 2^n. Of course this size is never reached since we remove letters from candidates as we get going.
-     * It can still get pretty large, that's why there is a hard limit of candidates to find to not iterate forever and return early. Since we iterate words in the order of their lengths,
-     * this means that the expressions with smaller words will be skipped if we return early
+     * It can still get pretty large, that's why there is a hard limit of candidates to find to not iterate forever and return early. 
      * TODO:
      * - If we have a lot of words matching letters, rank them by occurence in some reference corpora 
      */
@@ -449,7 +470,7 @@ impl Index {
         // let mut nb_iter = 0;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
-        let input_length = sorted_input.len();
+        // let input_length = sorted_input.len();
         let mut candidates: Vec<Matching> = vec![];
         // let mut nb_added_cand_scratch = 0;
         // let mut nb_added_cand_cand = 0;
@@ -458,10 +479,10 @@ impl Index {
 
         let matchable_words = self.get_matchable_words(&sorted_input, search_type);
         // println!("letters = {}", u8_to_str(&sorted_input));
-        println!("{} matchable words", matchable_words.len());
+        // println!("{} matchable words", matchable_words.len());
+
         for (index, word) in matchable_words.iter().enumerate().rev() {
-            // println!("{}, {:?}", index, word.letters_original_range);
-        // for word in matchable_words.iter().rev() {
+            // println!("{}", u8_to_str(&self.sorted_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize]));
             let searched_word_letters = &self.sorted_letters
                 [word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
             let cur_word_length = word.letters_sorted_range.end - word.letters_sorted_range.start;
@@ -536,13 +557,12 @@ impl Index {
             if enough_found {
                 break;
             }
-            let should_add_new = input_length < 20
-                || candidates.len() < 300
-                || cur_word_length > 4
-                || (cur_word_length as f32 / input_length as f32) > 0.2;
+            // let should_add_new = input_length < 20
+            //     || candidates.len() < 300
+            //     || cur_word_length > 4
+            //     || (cur_word_length as f32 / input_length as f32) > 0.2;
             /* Find new candidates from scratch */
-            if should_add_new
-                && Index::check_contains_all_letters(
+            if Index::check_contains_all_letters(
                     &sorted_input,
                     searched_word_letters,
                     search_type,
@@ -567,7 +587,6 @@ impl Index {
                 };
                 if new_candidate.is_complete {
                     nb_found += 1;
-                    // new_candidate.best_permutation(self);
                 }
                 candidates.push(new_candidate);
                 // nb_added_cand_scratch += 1;
@@ -690,16 +709,18 @@ impl<'a> Matching {
                     best_perm = combination;
                 }
             });
-        let only_small_words = self.matched[..self.matched_size as usize].iter()
-            .all(|word_index| {
-                let word = matchable_words[*word_index as usize];
+        let nb_small_words = self.matched[..self.matched_size as usize].iter()
+            .filter(|word_index| {
+                let word = matchable_words[**word_index as usize];
                 word.letters_sorted_range.end - word.letters_sorted_range.start < 4
-            });
+            })
+            .count();
         let mut best_perm_score = best_score / (self.matched.len().pow(2) as f32);
-        /* Penalize expression with only small words */
-        if only_small_words {
-            best_perm_score = best_perm_score / 2.0;
-        }
+        /* Penalize expression with lots of small words */
+        best_perm_score = best_perm_score / (1.0 + nb_small_words as f32);
+        // if nb_small_words == self.matched_size as usize {
+        //     best_perm_score = best_perm_score / 2.0;
+        // }
         (self._matched_to_string(&best_perm, index, matchable_words), best_perm_score)
     }
 
@@ -720,10 +741,8 @@ impl<'a> Matching {
         let m: Vec<u16> = matched.iter().map(|&&x| x).collect();
         self.matched_to_string(&m, index, matchable_words)
     }
-    /**
-     * Expections:
-     * - If last word is ADP, DET or PRON, penalize current combination
-     */
+
+
     fn score_combination(combination: &Vec<&u16>, index: &Index, matchable_words: &[&Word]) -> f32 {
         let mut score = 0.0;
         for window in combination.windows(2) {
@@ -759,9 +778,8 @@ impl<'a> Matching {
             score += best_inner_score;
         }
         let last = &matchable_words[**combination.last().unwrap() as usize];
-        if last.pos_tag == PosTag::ADP
-            || last.pos_tag == PosTag::DET
-            || last.pos_tag == PosTag::PRON
+        /*  If last word is ADP, DET, PRON, VERB penalize current combination */
+        if last.pos_tag == PosTag::ADP || last.pos_tag == PosTag::DET || last.pos_tag == PosTag::PRON || last.pos_tag == PosTag::VERB
         {
             score /= 4.0;
         }
@@ -842,18 +860,11 @@ fn bench_estimate() {
     for query in queries {
         let before = Instant::now();
         let copy: String = query.clone();
-        let words = index.find_anagrams_reverse(query, SearchType::ROOT);
+        let _words = index.find_anagrams_reverse(query, SearchType::ROOT);
         println!("{}: {:.2?}", copy, before.elapsed());
     }
             
 }
-// fn main() {
-//     let index: Index = Index::new();
-//     for _ in 0..20i64 {
-//         let words = index.find_anagrams_reverse(String::from("bien le bonjour madame"), SearchType::ROOT);
-//         assert_eq!(words.len(), 9999);
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
