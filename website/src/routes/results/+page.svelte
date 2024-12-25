@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import backImg from '$lib/img/back.svg';
 
+	import Logo from '../../lib/Logo.svelte';
 	import GifExporter from '../../lib/GifExporter.svelte';
 	// import Test from '$lib/VecTest.svelte';
 	// import InfiniteLoading from 'svelte-infinite-loading';
@@ -29,7 +30,6 @@
 
 	async function refreshResults() {
 		highlightedResult = null;
-		console.log('data=', data);
 		results = await loadAnagrams(data);
 		console.log(results);
 	}
@@ -46,13 +46,7 @@
 
 <main>
 	<header >
-		<a href="/">
-			<h1 class="logo">
-				<span class="dynapuff">anagra</span><i class="fuzzy-bubbles-bold mdr"
-					><span>m</span><span>d</span><span>r</span></i
-				>
-			</h1>
-		</a>
+		<Logo></Logo>
 		<input
 			class="search"
 			on:keydown={onSearchKeyUp}
@@ -93,19 +87,6 @@
 </main>
 
 <style lang="scss">
-	header {
-		padding: 10px;
-		background-color: #f1dbbb;
-		border-bottom: 1px solid #91795683;
-		position: relative;
-		z-index: 10;
-		display: flex;
-		justify-content: flex-start;
-		align-items: center;
-		& a {
-			text-decoration: none;
-		}
-	}
 	.logo {
 		margin: auto 0 auto 0;
 	}

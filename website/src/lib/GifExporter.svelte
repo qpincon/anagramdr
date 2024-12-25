@@ -13,6 +13,7 @@
 
 	export let origin;
 	export let destination;
+	export let showExport = true;
 
 	let animationDurationSec = DEFAULT_ANIMATION_TIME;
 	let textColor = DEFAULT_COLOR;
@@ -40,13 +41,9 @@
 		animationComponent.startAnimation(true);
 	}
 
-
-	function externalLink() {
-
-	}
 </script>
 
-<div>
+<div class="exporter">
 	{#if !isValid}
 		<span> Problème: L'expression d'origine et de destination ont des letters pas en commun. </span>
 	{:else}
@@ -62,9 +59,13 @@
 			</div>
 
 			<div class="export">
-				<img src={downloadIcon} title="Télécharger GIF" on:click={download}>
+				<img src={downloadIcon} title="Télécharger GIF" on:click={download} />
 				<!-- <img src={shareIcon} title="Partager URL" on:click={share}> -->
-				<img src={externalLinkIcon} title="Ouvrir outil d'export" on:click={externalLink}>
+				{#if showExport}
+				<a href="{`/export?origin=${origin}&destination=${destination}`}">
+					<img src={externalLinkIcon} title="Ouvrir outil d'export" />
+				</a>
+				{/if}
 			</div>
 
 			<div class="params">
@@ -75,7 +76,7 @@
 					position="responsive"
 				/>
 				<div class="param">
-                    <label for="duration">Durée de l'animation</label>
+					<label for="duration">Vitesse de l'animation</label>
 					<input
 						type="range"
 						id="duration"
@@ -84,6 +85,7 @@
 						max="10"
 						bind:value={animationDurationSec}
 					/>
+					<span> {animationDurationSec}s</span>
 				</div>
 			</div>
 		</div>
@@ -91,6 +93,9 @@
 </div>
 
 <style>
+	.exporter {
+		margin-top: 1rem;
+	}
 	.canvas-container {
 		width: 80%;
 		border: 1px solid #91795683;
@@ -100,34 +105,38 @@
 	}
 
 	.export {
-		display:flex;
+		display: flex;
 		margin: auto;
 		width: 100%;
 		justify-content: center;
-		& > img {
+		& img {
 			width: 35px;
 			cursor: pointer;
 			margin: 10px;
 		}
 	}
-    
-    .params {
-        margin-top: 2rem;
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-    }
-    .param {
-        display: flex;
-        align-items: center;
+
+	.params {
+		margin-top: 2rem;
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+	}
+	.param {
+		display: flex;
+		align-items: center;
 
 		& label {
 			margin-right: 2rem;
 		}
-    }
-    input[type="range"] {
-        flex: 1 0 50px;
-        margin: 1rem 0;
-        max-width: 300px;
-    }
+
+		& span {
+			margin-left: 1rem;
+		}
+	}
+	input[type='range'] {
+		flex: 1 0 50px;
+		margin: 1rem 0;
+		max-width: 250px;
+	}
 </style>

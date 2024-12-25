@@ -38,4 +38,7 @@
     <div class="bg bg-2"> </div>
 </div>
 <slot />
+<footer>
+    Anagramdr @ 2024
+</footer>
   

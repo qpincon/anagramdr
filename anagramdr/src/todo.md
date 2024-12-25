@@ -12,10 +12,13 @@ Design:
 - [ ] Gérer les erreurs côté back
 - [ ] Afficher erreur dans search bar quand > à un nombre de charactères
 - [ ] Ajouter un endpoint pour l'export pour tracking
-- [ ] Ajouter page pour juste GifExporter
+- [x] Ajouter page pour juste GifExporter
 - [ ] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi
 - [ ] Garder le focus quand on lance une recherche pour pouvoir re-generer facilement
 - [ ] Ajouter options avancées: recherche exacte, recherche avec un mot en particulier
+- [x] Ajouter durée en seconde près du slider
+- [ ] Monter limite de lettres
+- [ ] Ajouter footer
 
 Baseline:
 

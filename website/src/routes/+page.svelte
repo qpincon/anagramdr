@@ -1,6 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
-
+	import Logo from '../lib/Logo.svelte';
 	let inputText = '';
 
 	function goToResults() {
@@ -15,13 +15,36 @@
 	}
 
 </script>
+<div class="container">
+	<div class="logo">
+		<Logo fontSize="5rem"></Logo>
+	</div>
+	<input bind:value={inputText} type="search" on:keyup={onSearchKeyUp} placeholder="Ecrivez n'importe quoi" />
+	<button on:click={() => goToResults()} >Chercher!</button>
+</div>
 
-<header>
-	<h1 class="logo">
-		<span class="dynapuff">anagra</span><i class="fuzzy-bubbles-bold mdr"
-			><span>m</span><span>d</span><span>r</span></i
-		>
-	</h1>
-	<input bind:value={inputText} type="search" on:keyup={onSearchKeyUp} placeholder="Insérez une expression!" />
-	<button on:click={() => goToResults()} >Search</button>
-</header>
+<style lang="scss">
+	.container {
+		margin: auto;
+		margin-top: 6rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.logo {
+		margin: 0 auto;
+		width: min-content;
+	}
+	input {
+		max-width: 30rem;
+		height: 50px;
+		margin-top: 2rem;
+	}
+	button {
+		width: 7rem;
+		padding: 5px;
+		border-color: #006b5f;
+		background-color: #63baab;
+	}
+</style>

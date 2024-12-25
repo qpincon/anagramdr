@@ -9,7 +9,7 @@
 	export let targetText;
 	export let textColor = 'black';
 	export let animationDurationMs = 5000;
-
+	
 	let animationId = null;
 	let scale = 1;
 	onMount(() => {
@@ -25,7 +25,6 @@
 			cancelAnimationFrame(animationId);
 			animationId = null;
 		}
-		// console.log(sourceText, targetText);
 		animateAnagram(sourceText, targetText, !forExport, forExport);
 		// getLoadedFontsUrls();
 	}
@@ -38,7 +37,6 @@
 		let elementWidth = element.clientWidth;   // width with padding
 
 		if (element.clientWidth < 100) {
-			console.log(element.clientWidth);
 			await new Promise((res, _) => {
 				setTimeout(() => res(), 200)
 			})
@@ -66,7 +64,6 @@
 	function toAsciiChars(input) {
 		const diacriticsRemoved = input.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 		const wrongChars = diacriticsRemoved.match(simpleCharRegex);
-		console.log('diacriticsRemoved=', diacriticsRemoved, wrongChars);
 		if (wrongChars != null) {
 			console.log(`Still wrong characters remaining (${wrongChars}). Please update.`);
 			return null;
@@ -117,7 +114,7 @@
 		const lastSourceChar = sourceCharArray[sourceCharArray.length - 1];
 		const lastDestChar = destCharArray[destCharArray.length - 1];
 		let usedCanvas = exportToGif ? canvasElementForExport : canvasElement;
-
+		if (!usedCanvas) return;
 		const ctx = usedCanvas.getContext('2d');
 		const fontSize = 50;
 		ctx.textBaseline = 'middle';
