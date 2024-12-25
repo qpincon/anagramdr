@@ -7,9 +7,10 @@
 - [x] Score less expressions with lots of low letters words
 
 Design:
-- [ ] Renverser fleche pour fermer, ajouter "retour"
-- [ ] Ajouter color picker pour la couleur du gif
+- [x] Renverser fleche pour fermer, ajouter "retour"
+- [x] Ajouter color picker pour la couleur du gif
 - [ ] Gérer les erreurs côté back
+- [ ] Afficher erreur dans search bar quand > à un nombre de charactères
 - [ ] Ajouter un endpoint pour l'export pour tracking
 - [ ] Ajouter page pour juste GifExporter
 - [ ] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi

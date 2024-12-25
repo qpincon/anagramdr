@@ -63,7 +63,7 @@
 	</header>
 
 	<div class="results">
-		<div>{results.length} results</div>
+		<div>{results.length} resultats</div>
 		{#each results as result}
 			<div
 				on:click={async () => {
@@ -96,7 +96,7 @@
 	header {
 		padding: 10px;
 		background-color: #f1dbbb;
-		border-bottom: 1px solid rgba(145, 121, 86, 0.514);
+		border-bottom: 1px solid #91795683;
 		position: relative;
 		z-index: 10;
 		display: flex;
@@ -111,12 +111,12 @@
 	}
 	.back {
 		margin: 5px;
+		width: 32px;
+		height: 32px;
 		display: none;
 	}
 
 	.icon {
-		width: 16px;
-		height: 16px;
 		cursor: pointer;
 	}
 
@@ -129,11 +129,13 @@
 	.results {
 		margin: 0 0 0 17rem;
 		padding-top: 1rem;
+		& > div {
+			padding: 5px;
+		}
 	}
 
 	.result {
 		font-size: 30px;
-		padding: 5px;
 		cursor: pointer;
 	}
 
@@ -148,7 +150,7 @@
 			width: min(500px, 100vw);
 		}
 		& .side-content {
-			margin-top: 90px;
+			margin: 90px 1rem 1rem 1rem;
 		}
 		z-index: 1;
 		transition-property: width, transform;
@@ -158,7 +160,7 @@
 		flex-direction: column;
 		display: flex;
 		margin-left: auto;
-		border-left: 1px solid grey;
+		border-left: 1px solid #91795683;
 	}
 
 	@media screen and (max-width: 400px) {

@@ -1,24 +1,52 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { encodeToGif } from './index';
-	import * as flubber from 'flubber';
+	// import * as flubber from 'flubber';
 	import opentype from 'opentype.js';
-	import { flattenSVG } from 'flatten-svg';
+	// import { flattenSVG } from 'flatten-svg';
 
 	export let sourceText;
 	export let targetText;
+	export let textColor = 'black';
+	export let animationDurationMs = 5000;
 
+	let animationId = null;
+	let scale = 1;
 	onMount(() => {
 		startAnimation();
 	});
 
 	let canvasElement;
+	let canvasElementForExport;
 
 	const urlRegex = /url\(.*?\)/g;
-	export function startAnimation() {
-		console.log(sourceText, targetText);
-		animateAnagram(sourceText, targetText);
+	export function startAnimation(forExport = false) {
+		if (!forExport && animationId) {
+			cancelAnimationFrame(animationId);
+			animationId = null;
+		}
+		// console.log(sourceText, targetText);
+		animateAnagram(sourceText, targetText, !forExport, forExport);
 		// getLoadedFontsUrls();
+	}
+
+	async function getMaxAvailableSpace() {
+		if (!canvasElement) return 0;
+		const element = canvasElement.parentElement;
+		const computedStyle = getComputedStyle(element);
+
+		let elementWidth = element.clientWidth;   // width with padding
+
+		if (element.clientWidth < 100) {
+			console.log(element.clientWidth);
+			await new Promise((res, _) => {
+				setTimeout(() => res(), 200)
+			})
+			return getMaxAvailableSpace();
+		}
+		elementWidth -= parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
+
+		return elementWidth;
 	}
 
 	function getLoadedFontsUrls() {
@@ -38,6 +66,7 @@
 	function toAsciiChars(input) {
 		const diacriticsRemoved = input.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 		const wrongChars = diacriticsRemoved.match(simpleCharRegex);
+		console.log('diacriticsRemoved=', diacriticsRemoved, wrongChars);
 		if (wrongChars != null) {
 			console.log(`Still wrong characters remaining (${wrongChars}). Please update.`);
 			return null;
@@ -46,7 +75,7 @@
 	}
 
 	function computeXPositions(letters, letterWidths) {
-		let acc = 0;
+		let acc = 10;
 		return letters.map((c) => {
 			const x = acc;
 			acc += letterWidths[c];
@@ -78,16 +107,21 @@
 		return opentype.parse(Uint8Array.from(decompressed).buffer);
 	}
 
-	async function animateAnagram(sourceStr, targetStr) {
-		const font = await prepareFont();
+	async function animateAnagram(sourceStr, targetStr, loop = true, exportToGif = false) {
+		// const font = await prepareFont();
 		const sourceCharArray = Array.from(sourceStr);
 		const destCharArray = Array.from(targetStr);
 		const fromChars = Array.from(toAsciiChars(sourceStr).toLowerCase());
 		const targetChars = Array.from(toAsciiChars(targetStr).toLowerCase());
+
 		const lastSourceChar = sourceCharArray[sourceCharArray.length - 1];
 		const lastDestChar = destCharArray[destCharArray.length - 1];
-		const ctx = canvasElement.getContext('2d');
+		let usedCanvas = exportToGif ? canvasElementForExport : canvasElement;
+
+		const ctx = usedCanvas.getContext('2d');
 		const fontSize = 50;
+		ctx.textBaseline = 'middle';
+
 		ctx.font = `${fontSize}px serif`;
 		const allLetters = [...new Set([...Array.from(sourceStr), ...Array.from(targetStr)])];
 		const letterWidths = measureWidths(ctx, allLetters);
@@ -95,11 +129,17 @@
 		const sourceXPositions = computeXPositions(Array.from(sourceStr), letterWidths);
 		// console.log('sourceXPositions=', sourceXPositions);
 		const destXPositions = computeXPositions(Array.from(targetStr), letterWidths);
-		canvasElement.height = 200;
-		canvasElement.width = Math.max(
+		const maxWidth = await getMaxAvailableSpace();
+		usedCanvas.height = 100;
+		usedCanvas.width = Math.max(
 			sourceXPositions[sourceXPositions.length - 1] + letterWidths[lastSourceChar],
 			destXPositions[destXPositions.length - 1] + letterWidths[lastDestChar]
 		);
+		if (usedCanvas.width > maxWidth) {
+			scale = maxWidth/usedCanvas.width
+		} else {
+			scale = 1;
+		}
 		// destIndex, startX, destX, tweenFunc
 		const charState = sourceCharArray.map((c, i) => {
 			return {
@@ -125,14 +165,19 @@
 					break;
 				}
 			}
-			if (!charFound && sourceChar.match(/[a-z]/)) {
-				console.error(`'${sourceChar}' unmatched. That's a problem.`);
-				return;
+			if (!charFound) {
+				if (sourceChar.match(/[a-z]/)) {
+					console.error(`'${sourceChar}' unmatched. That's a problem.`);
+					return;
+				} else {
+					charState[i].destChar = sourceChar;
+					charState[i].destX = charState[i].startX;
+					charState[i].destY = -200;
+				}
 			}
 		}
 
-		// console.log('charState=', charState);
-		ctx.fillStyle = 'blue';
+		// console.log('charState=', JSON.parse(JSON.stringify(charState)));
 		ctx.font = `${fontSize}px serif`;
 		function timingTransform(progress) {
 			const t1 = smoothstep(0.1, 0.4, progress);
@@ -150,31 +195,50 @@
 		}
 
 		function draw(ctx, progress) {
-			ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+			ctx.clearRect(0, 0, usedCanvas.width, usedCanvas.height);
+			ctx.fillStyle = textColor;
 			for (const state of charState) {
 				const p = timingTransform(progress);
 				switchLetters(progress, 0.4, state, 'target');
 				switchLetters(progress, 0.9, state, 'source');
 				const x = state.startX + (state.destX - state.startX) * p;
 				let y;
-				if (Math.abs(state.startX - state.destX) < 30) y = 0;
-				else {
-					y = ((-Math.pow(p * 2 - 1, 2) + 1) * fontSize) / 3;
-					if (state.startX > state.destX) y = -y;
+				const baseY = (usedCanvas.height / 2) + 15;
+				if (state.destY) {
+					y = baseY + (state.destY * p);
+				} else {
+					if (Math.abs(state.startX - state.destX) < 30) y = 0;
+					else {
+						y = ((-Math.pow(p * 2 - 1, 2) + 1) * fontSize) / 3;
+						if (state.startX > state.destX) y = -y;
+					}
+					y += baseY;
 				}
-				y += canvasElement.height / 2;
 				ctx.fillText(state.char, x, y);
 			}
 		}
-		animate({
-			duration: 5000,
-			ctx,
-			draw
-		});
-		// encodeToGif({
-		//     ctx,
-		//     renderFunction: draw
-		// });
+		
+		
+		if (exportToGif) {
+			await encodeToGif({
+				ctx,
+				duration: animationDurationMs / 1000,
+				renderFunction: draw
+			});
+		} else {
+			await animate({
+				duration: animationDurationMs,
+				ctx,
+				draw
+			});
+			if (loop) {
+				if (animationId) {
+					cancelAnimationFrame(animationId);
+					animationId = null;
+				}
+				animateAnagram(sourceStr, targetStr, loop);
+			}
+		}
 
 		// const path1 = font.getPath('M', 0, 100, 72);
 		// const pathData1 = path1.toPathData();
@@ -207,18 +271,20 @@
 	}
 
 	function animate({ draw, ctx, duration }) {
-		let start = performance.now();
+		return new Promise((resolve, reject) => {
+			let start = performance.now();
 
-		requestAnimationFrame(function animate(time) {
-			// timeFraction goes from 0 to 1
-			let timeFraction = (time - start) / duration;
-			if (timeFraction > 1) timeFraction = 1;
+			animationId = requestAnimationFrame(function animate(time) {
+				// timeFraction goes from 0 to 1
+				let timeFraction = (time - start) / duration;
+				if (timeFraction > 1) timeFraction = 1;
 
-			draw(ctx, timeFraction); // draw it
+				draw(ctx, timeFraction); // draw it
 
-			if (timeFraction < 1) {
-				requestAnimationFrame(animate);
-			}
+				if (timeFraction < 1) {
+					animationId = requestAnimationFrame(animate);
+				} else resolve();
+			});
 		});
 	}
 
@@ -227,7 +293,18 @@
 	let flubberSvg;
 </script>
 
-<canvas bind:this={canvasElement}></canvas>
+<canvas bind:this={canvasElement} 
+style="
+  transform: scale({scale}); 
+  transform-origin: left;
+  margin: auto;
+  display: flex;
+"></canvas>
+<canvas bind:this={canvasElementForExport} 
+style="
+  position: absolute; 
+  top: -200px;
+"></canvas>
 <!-- <svg xmlns="http://www.w3.org/2000/svg" width="600" height="300">
 	<path bind:this={testSvg}> </path>
 </svg>

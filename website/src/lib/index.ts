@@ -15,12 +15,10 @@ function download (buf, filename, type) {
     anchor.click();
 };
   
-export async function encodeToGif ({ctx, renderFunction }) {
-    // const context = canvas.getContext('2d');
+export async function encodeToGif ({ctx, renderFunction, duration }) {
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
     const fps = 30;
-    const duration = 5;
     const totalFrames = Math.ceil(duration * fps);
   
     const fpsInterval = 1 / fps;
@@ -64,7 +62,8 @@ export async function encodeToGif ({ctx, renderFunction }) {
 }
 
 export function areStringsAnagrams(s1: string, s2: string): boolean {
-  const diacriticsRemoved1 = s1.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').split('').sort().join('').replaceAll(' ', '');
-  const diacriticsRemoved2 = s2.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').split('').sort().join('').replaceAll(' ', '');
+  const diacriticsRemoved1 = s1.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').split('').sort().join('').replaceAll(' ', '');
+  const diacriticsRemoved2 = s2.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').split('').sort().join('').replaceAll(' ', '');
+  // console.log(diacriticsRemoved1, diacriticsRemoved2);
   return diacriticsRemoved1 === diacriticsRemoved2;
 }
