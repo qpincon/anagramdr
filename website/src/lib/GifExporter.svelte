@@ -5,7 +5,6 @@
 	import ColorPicker from 'svelte-awesome-color-picker';
 	import { debounce } from 'lodash-es';
 	import downloadIcon from '$lib/img/download.svg';
-	// import shareIcon from '$lib/img/share.svg';
 	import externalLinkIcon from '$lib/img/external-link.svg';
 
 	const DEFAULT_ANIMATION_TIME = 5;

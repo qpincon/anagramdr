@@ -1,3 +1,5 @@
+@use 'tippy.js/dist/tippy.css';
+@use 'tippy.js/themes/light.css';
 @use './fonts.scss';
 @use "@picocss/pico/scss/pico" with (
   $enable-semantic-container: false,

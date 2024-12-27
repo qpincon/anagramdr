@@ -7,6 +7,8 @@
 	import Logo from '../../lib/Logo.svelte';
 	import GifExporter from '../../lib/GifExporter.svelte';
 	import { sortedStringNormalized } from '../../lib';
+	import settingsIcon from '$lib/img/settings.svg';
+	import tippy from 'tippy.js';
 
 	const MAX_NB_LETTERS = 20;
 
@@ -19,12 +21,21 @@
 	let textField;
 	let backError = null;
 	let validationError = null;
+	let settingsImgElement;
+	let settingsContentElement;
 
 	onMount(async () => {
 		if (!data.input) goto(`/`);
 		textSnapshot = textField = data.input;
 		searchType = data.search_type ?? 'ROOT';
 		await refreshResults(data);
+		settingsContentElement.style.display = 'block';
+		tippy(settingsImgElement, {
+			content: settingsContentElement,
+			theme: 'light',
+			trigger: 'click',
+			interactive: true,
+		});
 	});
 
 	function goToResults() {
@@ -65,6 +76,7 @@
 		highlightedResult = result[0];
 		await tick();
 	}
+
 </script>
 
 <main class:peek-opened={highlightedResult !== null} class:error={validationError}>
@@ -83,6 +95,18 @@
 			{#if validationError}
 				<small class="error-message"> {validationError}</small>
 			{/if}
+		</div>
+		<img class="settings-trigger" src={settingsIcon} bind:this={settingsImgElement}/>
+		<div class="settings" style="display: none;" bind:this={settingsContentElement}>
+			<div class="title"><small> Paramètres de recherche </small></div>
+			<div class="param">
+				<input type="checkbox" id="exact" name="exact" />
+				<label for="exact"> Les mots cherchés doivent garder les accents etc.</label>
+			</div>
+			<div class="param">
+				<label for="include"> Les résultats doivent inclure ce mot:</label>
+				<input type="text" id="include" name="include" />
+			</div>
 		</div>
 	</header>
 
@@ -118,7 +142,8 @@
 
 <style lang="scss">
 	.logo {
-		margin: auto 0 auto 0;
+		margin: auto 10px auto 0;
+		order: 1;
 	}
 	.back {
 		margin: 5px;
@@ -131,6 +156,7 @@
 		cursor: pointer;
 	}
 	.input {
+		order: 2;
 		display: flex;
 		flex-direction: column;
 		max-width: 25rem;
@@ -162,6 +188,7 @@
 	.result {
 		font-size: 30px;
 		cursor: pointer;
+		width: max-content;
 	}
 
 	.side-peek {
@@ -193,9 +220,46 @@
 			margin: 0 0 0 10rem;
 		}
 	}
+	.settings-trigger {
+		cursor: pointer;
+		order: 3;
+	}
 
 
+	.settings {
+		font-size: 0.8rem;
+		background-color: white;
+		& .param {
+			display: flex;
+		}
+		&::after {
+			content: ' ';
+			position: absolute;
+			bottom: 100%; /* At the top of the tooltip */
+			left: 50%;
+			margin-left: -5px;
+			border-width: 5px;
+			border-style: solid;
+			border-color: transparent transparent white transparent;
+		}
 
+		& .title {
+			margin: auto;
+			width: max-content;
+		}
+
+		& .param {
+			display: flex;
+			align-items: center;
+			margin-top: 10px;
+		}
+
+		& input[type='text'] {
+			height: 30px;
+			flex: 1 0 60px;
+			margin: 0 0 0 5px;
+		}
+	}
 	@media screen and (max-width: 400px) {
 		.logo {
 			display: none;
@@ -203,6 +267,7 @@
 		.search {
 			margin: auto;
 		}
+		
 	}
 	@media screen and (max-width: 1000px) {
 		.results {
@@ -214,6 +279,15 @@
 		.peek-opened .side-peek {
 			background-color: #f1dbbb;
 			width: 100vw !important;
+		}
+
+		.settings-trigger {
+			order: 2;
+			margin: 0 10px 0 auto;
+		}
+		.input {
+			order: 3;
+			margin-left: 10px;
 		}
 	}
 </style>

@@ -22,6 +22,7 @@ Design:
 - [x] Debugger majuscules dans expr initiale
 - [x] Bouger liste de mots vers la gauche quand drawer ouvert
 - [ ] Export gif: ajouter route qui ouvre un blob?
+- [ ] Avoir un bouton "retour en haut"
 
 Baseline:
 
