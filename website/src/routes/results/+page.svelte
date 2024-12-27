@@ -6,36 +6,40 @@
 
 	import Logo from '../../lib/Logo.svelte';
 	import GifExporter from '../../lib/GifExporter.svelte';
-	// import Test from '$lib/VecTest.svelte';
-	// import InfiniteLoading from 'svelte-infinite-loading';
 
 	let results = [];
 	let highlightedResult = null;
 
 	export let data;
-	let frozenInput;
+	let textSnapshot;
+	let searchType;
+	let textField;
 
 	onMount(async () => {
-		frozenInput = { ...data };
+		if (!data.input) goto(`/`);
+		textSnapshot = textField = data.input;
+		searchType = data.search_type ?? 'ROOT';
 		await refreshResults(data);
 	});
 
 	function goToResults() {
 		const params = new URLSearchParams();
-		params.set('input', data.input);
-		params.set('search_type', 'ROOT');
+		textSnapshot = textField;
+		params.set('input', textSnapshot);
+		params.set('search_type', searchType);
 		goto(`/results?${params.toString()}`);
 		refreshResults();
 	}
 
 	async function refreshResults() {
 		highlightedResult = null;
-		results = await loadAnagrams(data);
-		console.log(results);
+		results = await loadAnagrams({input: textSnapshot, searchType});
 	}
 
 	function onSearchKeyUp(e) {
-		if (e.key === 'Enter') goToResults();
+		if (e.key === 'Enter') {
+			goToResults();
+		}
 	}
 
 	async function changeSelectedResult(result) {
@@ -44,15 +48,16 @@
 	}
 </script>
 
-<main>
+<main class:peek-opened={highlightedResult !== null}>
 	<header >
-		<Logo></Logo>
+		<div class="logo">
+			<Logo></Logo>
+		</div>
 		<input
 			class="search"
 			on:keydown={onSearchKeyUp}
-			bind:value={data.input}
+			bind:value={textField}
 			type="search"
-			placeholder="Insérez une expression!"
 		/>
 	</header>
 
@@ -70,7 +75,7 @@
 		{/each}
 	</div>
 
-	<div class="side-peek" class:opened={highlightedResult !== null}>
+	<div class="side-peek">
 		{#if highlightedResult}
 			<div class="side-content">
 				<img
@@ -80,7 +85,7 @@
 					alt=""
 					title="Close panel"
 				/>
-				<GifExporter origin={frozenInput.input} destination={highlightedResult}></GifExporter>
+				<GifExporter origin={textSnapshot} destination={highlightedResult}></GifExporter>
 			</div>
 		{/if}
 	</div>
@@ -127,9 +132,7 @@
 		bottom: 0px;
 		max-width: 100vw;
 		width: 0px;
-		&.opened {
-			width: min(500px, 100vw);
-		}
+		
 		& .side-content {
 			margin: 90px 1rem 1rem 1rem;
 		}
@@ -143,10 +146,21 @@
 		margin-left: auto;
 		border-left: 1px solid #91795683;
 	}
+	.peek-opened {
+		& .side-peek {
+			width: min(500px, 100vw);
+		}
+		& .results {
+			margin: 0 0 0 10rem;
+		}
+	}
 
 	@media screen and (max-width: 400px) {
 		.logo {
 			display: none;
+		}
+		.search {
+			margin: auto;
 		}
 	}
 	@media screen and (max-width: 1000px) {
@@ -156,7 +170,7 @@
 		.back {
 			display: block;
 		}
-		.side-peek.opened {
+		.peek-opened .side-peek {
 			background-color: #f1dbbb;
 			width: 100vw !important;
 		}

@@ -17,7 +17,7 @@
 </script>
 <div class="container">
 	<div class="logo">
-		<Logo fontSize="5rem"></Logo>
+		<Logo></Logo>
 	</div>
 	<input bind:value={inputText} type="search" on:keyup={onSearchKeyUp} placeholder="Ecrivez n'importe quoi" />
 	<button on:click={() => goToResults()} >Chercher!</button>
@@ -35,6 +35,7 @@
 	.logo {
 		margin: 0 auto;
 		width: min-content;
+		font-size: 2em;
 	}
 	input {
 		max-width: 30rem;
@@ -46,5 +47,11 @@
 		padding: 5px;
 		border-color: #006b5f;
 		background-color: #63baab;
+	}
+
+	@media screen and (max-width: 400px) {
+		.logo {
+			font-size: 1.5em;
+		}
 	}
 </style>

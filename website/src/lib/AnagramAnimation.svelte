@@ -18,9 +18,9 @@
 
 	let canvasElement;
 	let canvasElementForExport;
-
 	const urlRegex = /url\(.*?\)/g;
 	export function startAnimation(forExport = false) {
+
 		if (!forExport && animationId) {
 			cancelAnimationFrame(animationId);
 			animationId = null;
@@ -60,14 +60,8 @@
 		return fonts;
 	}
 
-	const simpleCharRegex = /[^A-Za-z\- ']/g;
 	function toAsciiChars(input) {
 		const diacriticsRemoved = input.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-		const wrongChars = diacriticsRemoved.match(simpleCharRegex);
-		if (wrongChars != null) {
-			console.log(`Still wrong characters remaining (${wrongChars}). Please update.`);
-			return null;
-		}
 		return diacriticsRemoved;
 	}
 
@@ -115,7 +109,7 @@
 		const lastDestChar = destCharArray[destCharArray.length - 1];
 		let usedCanvas = exportToGif ? canvasElementForExport : canvasElement;
 		if (!usedCanvas) return;
-		const ctx = usedCanvas.getContext('2d');
+		const ctx = usedCanvas.getContext('2d',  { willReadFrequently: true });
 		const fontSize = 50;
 		ctx.textBaseline = 'middle';
 
@@ -132,6 +126,9 @@
 			sourceXPositions[sourceXPositions.length - 1] + letterWidths[lastSourceChar],
 			destXPositions[destXPositions.length - 1] + letterWidths[lastDestChar]
 		);
+
+
+
 		if (usedCanvas.width > maxWidth) {
 			scale = maxWidth/usedCanvas.width
 		} else {
@@ -217,11 +214,12 @@
 		
 		
 		if (exportToGif) {
-			await encodeToGif({
+			const url = await encodeToGif({
 				ctx,
 				duration: animationDurationMs / 1000,
 				renderFunction: draw
 			});
+			window.open(url);
 		} else {
 			await animate({
 				duration: animationDurationMs,

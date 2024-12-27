@@ -14,11 +14,14 @@ Design:
 - [ ] Ajouter un endpoint pour l'export pour tracking
 - [x] Ajouter page pour juste GifExporter
 - [ ] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi
-- [ ] Garder le focus quand on lance une recherche pour pouvoir re-generer facilement
+- ~[ ] Garder le focus quand on lance une recherche pour pouvoir re-generer facilement~
 - [ ] Ajouter options avancées: recherche exacte, recherche avec un mot en particulier
 - [x] Ajouter durée en seconde près du slider
 - [ ] Monter limite de lettres
-- [ ] Ajouter footer
+- [x] Ajouter footer
+- [x] Debugger majuscules dans expr initiale
+- [x] Bouger liste de mots vers la gauche quand drawer ouvert
+- [ ] Export gif: ajouter route qui ouvre un blob
 
 Baseline:
 

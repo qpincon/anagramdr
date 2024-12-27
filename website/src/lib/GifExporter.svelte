@@ -45,7 +45,7 @@
 
 <div class="exporter">
 	{#if !isValid}
-		<span> Problème: L'expression d'origine et de destination ont des letters pas en commun. </span>
+		<span> Problème: L'expression d'origine et de destination ont des lettres pas en commun. </span>
 	{:else}
 		<div>
 			<div class="canvas-container">

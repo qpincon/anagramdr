@@ -3,7 +3,8 @@
 	import { areStringsAnagrams } from '../../lib';
 	import GifExporter from '../../lib/GifExporter.svelte';
 	import Logo from '../../lib/Logo.svelte';
-    
+	import { goto } from '$app/navigation';
+
 	let origin = "";
 	let destination = "";
 
@@ -18,6 +19,12 @@
 
     $: isValidAnagram = origin !== "" && destination !== "" && areStringsAnagrams(origin, destination);
 
+	$: if (isValidAnagram) {
+		const params = new URLSearchParams();
+		params.set('origin', origin);
+		params.set('destination', destination);
+		goto(`/export?${params.toString()}`); 
+	}
 </script>
 
 <main>
@@ -50,7 +57,7 @@
 	}
 
     .content {
-        padding-top: 1rem;
+		padding: 1rem 1rem 0;
         margin: 1rem auto;
         max-width: 30rem;
     }

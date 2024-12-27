@@ -108,7 +108,16 @@ html,body {
 }
 
 footer {
+  font-size: 0.8rem;
   position: sticky;
-  top: calc(100vh - 66px);
-  background-color: #eaf0e5;
+  top: calc(100vh - 40px);
+  border-top: 1px solid #006b5f;
+  background-color: rgba(#ffffff,  0.2);
+  padding-block: 0 !important;
+  display: flex;
+  height: 40px;
+  align-items: center;
+  & > span {
+    margin: 0 10px;
+  }
 }

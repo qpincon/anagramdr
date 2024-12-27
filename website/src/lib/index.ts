@@ -47,7 +47,6 @@ export async function encodeToGif ({ctx, renderFunction, duration }) {
       const index = gifenc.applyPalette(data, palette, format);
       // Write frame into GIF
       gif.writeFrame(index, width, height, { palette, delay, transparent: true });
-      // gif.writeFrame(index, width, height, { palette, delay });
   
       // Wait a tick so that we don't lock up browser
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -58,12 +57,15 @@ export async function encodeToGif ({ctx, renderFunction, duration }) {
   
     // Get a direct typed array view into the buffer to avoid copying it
     const buffer = gif.bytesView();
-    download(buffer, 'animation.gif', { type: 'image/gif' });
+    const blob = new Blob([buffer],  { type: 'image/gif' });
+    const url = URL.createObjectURL(blob);
+    return url;
+    // download(buffer, 'animation.gif', { type: 'image/gif' });
 }
 
 export function areStringsAnagrams(s1: string, s2: string): boolean {
-  const diacriticsRemoved1 = s1.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').split('').sort().join('').replaceAll(' ', '');
-  const diacriticsRemoved2 = s2.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').split('').sort().join('').replaceAll(' ', '');
-  // console.log(diacriticsRemoved1, diacriticsRemoved2);
+  const diacriticsRemoved1 = s1.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().split('').sort().join('').replaceAll(' ', '');
+  const diacriticsRemoved2 = s2.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().split('').sort().join('').replaceAll(' ', '');
+  console.log(diacriticsRemoved1, diacriticsRemoved2);
   return diacriticsRemoved1 === diacriticsRemoved2;
 }
