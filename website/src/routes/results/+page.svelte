@@ -6,6 +6,9 @@
 
 	import Logo from '../../lib/Logo.svelte';
 	import GifExporter from '../../lib/GifExporter.svelte';
+	import { sortedStringNormalized } from '../../lib';
+
+	const MAX_NB_LETTERS = 20;
 
 	let results = [];
 	let highlightedResult = null;
@@ -14,6 +17,8 @@
 	let textSnapshot;
 	let searchType;
 	let textField;
+	let backError = null;
+	let validationError = null;
 
 	onMount(async () => {
 		if (!data.input) goto(`/`);
@@ -33,12 +38,26 @@
 
 	async function refreshResults() {
 		highlightedResult = null;
-		results = await loadAnagrams({input: textSnapshot, searchType});
+		const res = await loadAnagrams({ input: textSnapshot, searchType });
+		if (results.code) {
+			backError = results.message;
+		} else {
+			results = res;
+		}
 	}
 
 	function onSearchKeyUp(e) {
-		if (e.key === 'Enter') {
+		if (e.key === 'Enter' && !validationError) {
 			goToResults();
+		}
+	}
+
+	function validateInput(e) {
+		const normalized = sortedStringNormalized(e.target.value);
+		if (normalized.length >= MAX_NB_LETTERS) {
+			validationError = `Un maximum de ${MAX_NB_LETTERS} lettres est supporté`;
+		} else {
+			validationError = null;
 		}
 	}
 
@@ -48,17 +67,23 @@
 	}
 </script>
 
-<main class:peek-opened={highlightedResult !== null}>
-	<header >
+<main class:peek-opened={highlightedResult !== null} class:error={validationError}>
+	<header>
 		<div class="logo">
 			<Logo></Logo>
 		</div>
-		<input
-			class="search"
-			on:keydown={onSearchKeyUp}
-			bind:value={textField}
-			type="search"
-		/>
+		<div class="input">
+			<input
+				class="search"
+				on:keyup={onSearchKeyUp}
+				on:input={validateInput}
+				bind:value={textField}
+				type="search"
+			/>
+			{#if validationError}
+				<small class="error-message"> {validationError}</small>
+			{/if}
+		</div>
 	</header>
 
 	<div class="results">
@@ -105,13 +130,27 @@
 	.icon {
 		cursor: pointer;
 	}
-
-	.search {
+	.input {
+		display: flex;
+		flex-direction: column;
 		max-width: 25rem;
-		height: 45px;
-		margin: auto auto auto 5rem;
+		margin: auto 1rem auto 5rem;
+		align-items: center;
 	}
 
+	.error-message {
+		color: #9b2318;
+		margin: 0;
+		width: max-content;
+	}
+	.search {
+		margin: 0;
+		height: 45px;
+	}
+
+	.error .search {
+		border-color: #9b2318;
+	}
 	.results {
 		margin: 0 0 0 17rem;
 		padding-top: 1rem;
@@ -132,7 +171,7 @@
 		bottom: 0px;
 		max-width: 100vw;
 		width: 0px;
-		
+
 		& .side-content {
 			margin: 90px 1rem 1rem 1rem;
 		}
@@ -154,6 +193,8 @@
 			margin: 0 0 0 10rem;
 		}
 	}
+
+
 
 	@media screen and (max-width: 400px) {
 		.logo {

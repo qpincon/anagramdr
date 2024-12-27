@@ -9,19 +9,19 @@
 Design:
 - [x] Renverser fleche pour fermer, ajouter "retour"
 - [x] Ajouter color picker pour la couleur du gif
-- [ ] Gérer les erreurs côté back
-- [ ] Afficher erreur dans search bar quand > à un nombre de charactères
+- [x] Gérer les erreurs côté back
+- [x] Afficher erreur dans search bar quand > à un nombre de charactères
 - [ ] Ajouter un endpoint pour l'export pour tracking
 - [x] Ajouter page pour juste GifExporter
 - [ ] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi
 - ~[ ] Garder le focus quand on lance une recherche pour pouvoir re-generer facilement~
 - [ ] Ajouter options avancées: recherche exacte, recherche avec un mot en particulier
 - [x] Ajouter durée en seconde près du slider
-- [ ] Monter limite de lettres
+- [x] Monter limite de lettres
 - [x] Ajouter footer
 - [x] Debugger majuscules dans expr initiale
 - [x] Bouger liste de mots vers la gauche quand drawer ouvert
-- [ ] Export gif: ajouter route qui ouvre un blob
+- [ ] Export gif: ajouter route qui ouvre un blob?
 
 Baseline:
 

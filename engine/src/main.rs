@@ -22,6 +22,7 @@ const ALLOWED_CHARS: &str = "aàâäbcçdeéèêëfghiîïjklmnoôÔöÖpqrstuû
 const MAX_EXPR_SIZE: usize = 6;
 const MAX_MATCHABLE_WORDS: usize = 600;
 const NB_BIG_WORDS_INCLUDED : usize = 30;
+const MAX_QUERY_LETTERS: usize = 25;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -465,16 +466,20 @@ impl Index {
      * TODO:
      * - If we have a lot of words matching letters, rank them by occurence in some reference corpora 
      */
-    fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Vec<(String, f32)> {
+    fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Result<Vec<(String, f32)>, String> {
         let max_cand_to_find = 10000;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
+        if sorted_input.len() > MAX_QUERY_LETTERS {
+            return Err(format!("Too many letters ({}, max is {})", sorted_input.len(), MAX_QUERY_LETTERS));
+        }
         let mut candidates: Vec<Matching> = vec![];
         let mut enough_found = false;
         // let start = Instant::now();
 
         let matchable_words = self.get_matchable_words(&sorted_input, search_type);
 
+        // println!("{} matchabled words", matchable_words.len());
         for (index, word) in matchable_words.iter().enumerate().rev() {
             let searched_word_letters = &self.sorted_letters
                 [word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
@@ -561,7 +566,7 @@ impl Index {
         // println!("Time to find best permutations: {:.2?}", start_scoring.elapsed());
         // println!("Found {} anagrams", str_with_scores.len());
 
-        str_with_scores
+        Ok(str_with_scores)
     }
 
 }
@@ -647,7 +652,7 @@ impl<'a> Matching {
         let nb_small_words = self.matched[..self.matched_size as usize].iter()
             .filter(|word_index| {
                 let word = matchable_words[**word_index as usize];
-                word.letters_sorted_range.end - word.letters_sorted_range.start < 4
+                word.letters_sorted_range.end - word.letters_sorted_range.start <= 4
             })
             .count();
         let mut best_perm_score = best_score / (self.matched.len().pow(2) as f32);
@@ -746,18 +751,21 @@ async fn main() {
     .and(warp::query::<QueryParams>())
     .map(move |q: QueryParams| {
             let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
-            if query_input.len() > 20 {
-                let json = warp::reply::json(&ErrorMessage {
-                    code: StatusCode::BAD_REQUEST.as_u16(),
-                    message: "Too many letters".into(),
-                });
-            
-                return warp::reply::with_status(json, StatusCode::BAD_REQUEST);
-            }
             let before = Instant::now();
-            let words = index.find_anagrams_reverse(query_input, q.search_type);
+            let results = index.find_anagrams_reverse(query_input, q.search_type);
             println!("Elapsed time: {:.2?}", before.elapsed());
-            return warp::reply::with_status(warp::reply::json(&words), StatusCode::OK);
+            match results {
+                Ok(res) => return warp::reply::with_status(warp::reply::json(&res), StatusCode::OK),
+                Err(msg) => {
+                    let json = warp::reply::json(&ErrorMessage {
+                        code: StatusCode::BAD_REQUEST.as_u16(),
+                        message: msg.into(),
+                    });
+                
+                    return warp::reply::with_status(json, StatusCode::BAD_REQUEST);
+                }
+            }
+            
         });
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 }

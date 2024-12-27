@@ -63,9 +63,13 @@ export async function encodeToGif ({ctx, renderFunction, duration }) {
     // download(buffer, 'animation.gif', { type: 'image/gif' });
 }
 
+export function sortedStringNormalized(s: string): string {
+  return s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().split('').sort().join('').replaceAll(' ', '');
+}
+
 export function areStringsAnagrams(s1: string, s2: string): boolean {
-  const diacriticsRemoved1 = s1.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().split('').sort().join('').replaceAll(' ', '');
-  const diacriticsRemoved2 = s2.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().split('').sort().join('').replaceAll(' ', '');
-  console.log(diacriticsRemoved1, diacriticsRemoved2);
+  const diacriticsRemoved1 = sortedStringNormalized(s1);
+  const diacriticsRemoved2 = sortedStringNormalized(s2);
+  // console.log(diacriticsRemoved1, diacriticsRemoved2);
   return diacriticsRemoved1 === diacriticsRemoved2;
 }
