@@ -12,7 +12,7 @@
 
 <style>
 	a {
-		text-decoration: none;
+		text-decoration: none !important;
 	}
     h1 {
         margin: 0;

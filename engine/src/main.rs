@@ -366,7 +366,6 @@ impl Index {
         searched: &[u8],
         search_type: SearchType,
     ) -> bool {
-        // println!("{:?} ({}) vs {:?} ({})", letter_pool, u8_to_str(letter_pool), searched, u8_to_str(searched));
         let lengths = (letter_pool.len(), searched.len()); // pool, searched
         if lengths.1 > lengths.0 {
             return false;
@@ -421,24 +420,42 @@ impl Index {
     /**
      * Get matchable words, always including words containing the most letters
      */
-    fn get_matchable_words(&self, input_letters: &[u8], search_type: SearchType) -> Vec<&Word> {
-        let words: Vec<&Word> = self.word_defs
+    fn get_matchable_words(&self, input_letters: &[u8], search_type: SearchType, word_to_include: &[u8],) -> Result<Vec<&Word>, String> {
+        let mut words: Vec<&Word> = self.word_defs
             .iter()
-            .filter(|w: &&Word| {
+            .filter(| w| {
                 Index::check_contains_all_letters(
                     input_letters,
                     &self.sorted_letters[w.letters_sorted_range.start as usize
                         ..w.letters_sorted_range.end as usize],
                     search_type,
                 )
+                
             })
             .collect();
-        if words.len() <= MAX_MATCHABLE_WORDS {
-            return words;
+
+        // We will find the word, put it at the end of the array, and during the finding of anagrams,
+        // this will remain the only root of the search tree
+        if word_to_include.len() > 0 {
+            let index = words
+            .iter()
+            .find_position(|w| {
+                let searched = &self.sorted_letters[w.letters_sorted_range.start as usize..w.letters_sorted_range.end as usize];
+                word_to_include.len() == searched.len() && searched.iter().zip(word_to_include.iter())
+                .all(|(a, b)| encoded_chars_equal(*a, *b, search_type))
+            });
+            if index.is_some() {
+                // println!("Word found! at index {}", index.unwrap().0);
+                let removed = words.remove(index.unwrap().0);
+                words.push(removed);
+            } else {
+                return Err(String::from("Le mot fourni n'est pas contenu dans l'index"))
+            }
         }
-
+        if words.len() <= MAX_MATCHABLE_WORDS {
+            return Ok(words);
+        }
         /* Always include NB_BIG_WORDS_INCLUDED bigger words */
-
         let mut rng = thread_rng();
         let mut result = Vec::new();
 
@@ -455,7 +472,7 @@ impl Index {
             let length_b: u32 = b.letters_sorted_range.end - b.letters_sorted_range.start;
             return length_a.partial_cmp(&length_b).unwrap();
         });
-        result
+        Ok(result)
 
     }
 
@@ -466,7 +483,7 @@ impl Index {
      * TODO:
      * - If we have a lot of words matching letters, rank them by occurence in some reference corpora 
      */
-    fn find_anagrams_reverse(&self, input: String, search_type: SearchType) -> Result<Vec<(String, f32)>, String> {
+    fn find_anagrams_reverse(&self, input: String, search_type: SearchType, word_to_include: String) -> Result<Vec<(String, f32)>, String> {
         let max_cand_to_find = 10000;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
@@ -475,12 +492,24 @@ impl Index {
         }
         let mut candidates: Vec<Matching> = vec![];
         let mut enough_found = false;
+        let mut mode_include = false;
+        let mut sorted_to_include : Vec<u8> = vec![];
+        println!("{}", word_to_include);
+        if word_to_include.len() > 0 {
+            mode_include = true;
+            sorted_to_include = self.process_input(word_to_include);
+        }
         // let start = Instant::now();
 
-        let matchable_words = self.get_matchable_words(&sorted_input, search_type);
-
+        let matchable_words_res = self.get_matchable_words(&sorted_input, search_type, &sorted_to_include);
+        if matchable_words_res.is_err() {
+            return Err(matchable_words_res.unwrap_err());
+        }
+        let matchable_words = matchable_words_res.unwrap();
+        let nb_matchable_words = matchable_words.len();
         // println!("{} matchabled words", matchable_words.len());
         for (index, word) in matchable_words.iter().enumerate().rev() {
+            // println!("{}, {}", index, u8_to_str(&self.sorted_letters[word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize]));
             let searched_word_letters = &self.sorted_letters
                 [word.letters_sorted_range.start as usize..word.letters_sorted_range.end as usize];
             let nb_cand = candidates.len();
@@ -525,8 +554,9 @@ impl Index {
             if enough_found {
                 break;
             }
+            let should_add_new_cand = !mode_include || index == nb_matchable_words - 1;
             /* Find new candidates from scratch */
-            if Index::check_contains_all_letters(
+            if should_add_new_cand && Index::check_contains_all_letters(
                     &sorted_input,
                     searched_word_letters,
                     search_type,
@@ -735,6 +765,8 @@ struct QueryParams {
     input: String,
     #[serde(default)]
     search_type: SearchType,
+    #[serde(default)]
+    word_to_include: String,
 }
 
 // use std::mem;
@@ -752,7 +784,7 @@ async fn main() {
     .map(move |q: QueryParams| {
             let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
             let before = Instant::now();
-            let results = index.find_anagrams_reverse(query_input, q.search_type);
+            let results = index.find_anagrams_reverse(query_input, q.search_type, q.word_to_include);
             println!("Elapsed time: {:.2?}", before.elapsed());
             match results {
                 Ok(res) => return warp::reply::with_status(warp::reply::json(&res), StatusCode::OK),
@@ -784,7 +816,7 @@ fn bench_estimate() {
     for query in queries {
         let before = Instant::now();
         let copy: String = query.clone();
-        let _words = index.find_anagrams_reverse(query, SearchType::ROOT);
+        let _words = index.find_anagrams_reverse(query, SearchType::ROOT, String::from(""));
         println!("{}: {:.2?}", copy, before.elapsed());
     }
             

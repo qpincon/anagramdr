@@ -17,24 +17,28 @@
 
 	export let data;
 	let textSnapshot;
-	let searchType;
 	let textField;
 	let backError = null;
 	let validationError = null;
 	let settingsImgElement;
 	let settingsContentElement;
+	let toIncludeInput;
+	let toIncludeError = null;
+	let isSearchExact = false;
+
+	$: searchType = isSearchExact ? 'EXACT' : 'ROOT';
 
 	onMount(async () => {
 		if (!data.input) goto(`/`);
 		textSnapshot = textField = data.input;
-		searchType = data.search_type ?? 'ROOT';
+		isSearchExact = data.search_type  === 'ROOT' ? true : false;
 		await refreshResults(data);
 		settingsContentElement.style.display = 'block';
 		tippy(settingsImgElement, {
 			content: settingsContentElement,
 			theme: 'light',
 			trigger: 'click',
-			interactive: true,
+			interactive: true
 		});
 	});
 
@@ -43,13 +47,14 @@
 		textSnapshot = textField;
 		params.set('input', textSnapshot);
 		params.set('search_type', searchType);
+		if (toIncludeInput) params.set('word_to_include', toIncludeInput);
 		goto(`/results?${params.toString()}`);
 		refreshResults();
 	}
 
 	async function refreshResults() {
 		highlightedResult = null;
-		const res = await loadAnagrams({ input: textSnapshot, searchType });
+		const res = await loadAnagrams({ input: textSnapshot, searchType, wordToInclude: toIncludeInput });
 		if (results.code) {
 			backError = results.message;
 		} else {
@@ -58,7 +63,7 @@
 	}
 
 	function onSearchKeyUp(e) {
-		if (e.key === 'Enter' && !validationError) {
+		if (e.key === 'Enter' && !validationError && !toIncludeError) {
 			goToResults();
 		}
 	}
@@ -72,9 +77,24 @@
 		}
 	}
 
-	async function changeSelectedResult(result) {
+	function changeSelectedResult(result) {
 		highlightedResult = result[0];
-		await tick();
+	}
+
+	function validateToInclude(e) {
+		const txt = e.target.value;
+		const totalInputSorted = sortedStringNormalized(textField).split('');
+		const toIncludeSorted = sortedStringNormalized(txt).split('');
+		for (const c of toIncludeSorted) {
+			const index = totalInputSorted.findIndex((char) => char === c);
+			if (index === -1) {
+				toIncludeError = "Les lettres doivent être présentes dans l'expression de base";
+				return;
+			} else {
+				totalInputSorted.splice(index, 1);
+			}
+		}
+		toIncludeError = null;
 	}
 
 </script>
@@ -96,16 +116,28 @@
 				<small class="error-message"> {validationError}</small>
 			{/if}
 		</div>
-		<img class="settings-trigger" src={settingsIcon} bind:this={settingsImgElement}/>
+		<img class="settings-trigger" src={settingsIcon} bind:this={settingsImgElement} />
 		<div class="settings" style="display: none;" bind:this={settingsContentElement}>
 			<div class="title"><small> Paramètres de recherche </small></div>
 			<div class="param">
-				<input type="checkbox" id="exact" name="exact" />
+				<input type="checkbox" id="exact" name="exact" bind:value={isSearchExact}/>
 				<label for="exact"> Les mots cherchés doivent garder les accents etc.</label>
 			</div>
 			<div class="param">
 				<label for="include"> Les résultats doivent inclure ce mot:</label>
-				<input type="text" id="include" name="include" />
+				<div class="include-input">
+					<input
+						type="text"
+						id="include"
+						name="include"
+						bind:value={toIncludeInput}
+						on:input={validateToInclude}
+						on:keyup={onSearchKeyUp}
+					/>
+					{#if toIncludeError}
+						<span class="error-message include"> {toIncludeError} </span>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</header>
@@ -113,12 +145,7 @@
 	<div class="results">
 		<div>{results.length} resultats</div>
 		{#each results as result}
-			<div
-				on:click={async () => {
-					await changeSelectedResult(result);
-				}}
-				class="result"
-			>
+			<div on:click={changeSelectedResult(result)} class="result">
 				{result[0]}
 			</div>
 		{/each}
@@ -168,6 +195,10 @@
 		color: #9b2318;
 		margin: 0;
 		width: max-content;
+		display: block;
+		&.include {
+			max-width: 10rem;
+		}
 	}
 	.search {
 		margin: 0;
@@ -225,9 +256,8 @@
 		order: 3;
 	}
 
-
 	.settings {
-		font-size: 0.8rem;
+		font-size: 0.6rem;
 		background-color: white;
 		& .param {
 			display: flex;
@@ -255,9 +285,17 @@
 		}
 
 		& input[type='text'] {
-			height: 30px;
-			flex: 1 0 60px;
+			font-size: 0.8rem;
+			height: 25px;
 			margin: 0 0 0 5px;
+		}
+		
+		& .include-input {
+			max-width: 10rem;
+			flex: 1 0 60px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
 		}
 	}
 	@media screen and (max-width: 400px) {
@@ -267,7 +305,6 @@
 		.search {
 			margin: auto;
 		}
-		
 	}
 	@media screen and (max-width: 1000px) {
 		.results {

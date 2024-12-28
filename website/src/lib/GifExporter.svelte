@@ -75,7 +75,7 @@
 					position="responsive"
 				/>
 				<div class="param">
-					<label for="duration">Vitesse de l'animation</label>
+					<label for="duration">Durée de l'animation</label>
 					<input
 						type="range"
 						id="duration"
