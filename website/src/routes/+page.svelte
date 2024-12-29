@@ -4,6 +4,7 @@
 	let inputText = '';
 
 	function goToResults() {
+		if (!inputText.length) return;
 		const params = new URLSearchParams();
 		params.set('input', inputText);
 		params.set('search_type', 'ROOT');
@@ -18,6 +19,7 @@
 <div class="container">
 	<div class="logo">
 		<Logo></Logo>
+		<strong class="subtitle"> <i> Anagrammise ce qu'il te plaît ! </i> </strong>
 	</div>
 	<input bind:value={inputText} type="search" on:keyup={onSearchKeyUp} placeholder="Ecrivez n'importe quoi" />
 	<button on:click={() => goToResults()} >Chercher!</button>
@@ -36,6 +38,12 @@
 		margin: 0 auto;
 		width: min-content;
 		font-size: 2em;
+		display: flex;
+		flex-direction: column;
+		align-items: center	;
+		& .subtitle {
+			font-size: 1rem;
+		}
 	}
 	input {
 		max-width: 30rem;

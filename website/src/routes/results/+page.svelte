@@ -1,5 +1,5 @@
 <script>
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { loadAnagrams } from '$lib';
 	import { goto } from '$app/navigation';
 	import backImg from '$lib/img/back.svg';
@@ -25,13 +25,18 @@
 	let toIncludeInput;
 	let toIncludeError = null;
 	let isSearchExact = false;
+	let encoreTooltip;
+	let displayEncore = false;
 
 	$: searchType = isSearchExact ? 'EXACT' : 'ROOT';
 
 	onMount(async () => {
 		if (!data.input) goto(`/`);
 		textSnapshot = textField = data.input;
-		isSearchExact = data.search_type  === 'ROOT' ? true : false;
+		isSearchExact = data.search_type === 'ROOT' ? false : true;
+		if (data.word_to_include) {
+			toIncludeInput = data.word_to_include;
+		}
 		await refreshResults(data);
 		settingsContentElement.style.display = 'block';
 		tippy(settingsImgElement, {
@@ -39,6 +44,12 @@
 			theme: 'light',
 			trigger: 'click',
 			interactive: true
+		});
+
+		tippy(encoreTooltip, {
+			content: "<span> Il y a beaucoup d'anagrammes qui peuvent sortir d'une expression donnée, donc on en pioche juste quelques-uns, comme dans une loterie.</span> <br/>  <span>Résultat : chaque recherche, c'est la surprise du chef !</span>",
+			theme: 'light',
+			allowHTML: true
 		});
 	});
 
@@ -54,11 +65,18 @@
 
 	async function refreshResults() {
 		highlightedResult = null;
-		const res = await loadAnagrams({ input: textSnapshot, searchType, wordToInclude: toIncludeInput });
-		if (results.code) {
-			backError = results.message;
+		const res = await loadAnagrams({
+			input: textSnapshot,
+			searchType,
+			wordToInclude: toIncludeInput
+		});
+		if (res.code) {
+			backError = res.message;
+			results = [];
 		} else {
-			results = res;
+			results = res.anagrams;
+			displayEncore = res.was_truncated;
+			backError = null;
 		}
 	}
 
@@ -97,8 +115,13 @@
 		toIncludeError = null;
 	}
 
+	function encore() {
+		window.scrollTo(0,0);
+		refreshResults();
+	}
 </script>
 
+<svelte:window on:keyup={onSearchKeyUp} />
 <main class:peek-opened={highlightedResult !== null} class:error={validationError}>
 	<header>
 		<div class="logo">
@@ -120,8 +143,8 @@
 		<div class="settings" style="display: none;" bind:this={settingsContentElement}>
 			<div class="title"><small> Paramètres de recherche </small></div>
 			<div class="param">
-				<input type="checkbox" id="exact" name="exact" bind:value={isSearchExact}/>
-				<label for="exact"> Les mots cherchés doivent garder les accents etc.</label>
+				<input type="checkbox" id="exact" name="exact" bind:checked={isSearchExact} />
+				<label for="exact"> Les mots cherchés doivent garder les accents, etc.</label>
 			</div>
 			<div class="param">
 				<label for="include"> Les résultats doivent inclure ce mot:</label>
@@ -142,14 +165,18 @@
 		</div>
 	</header>
 
-	<div class="results">
-		<div>{results.length} resultats</div>
-		{#each results as result}
-			<div on:click={changeSelectedResult(result)} class="result">
-				{result[0]}
-			</div>
-		{/each}
-	</div>
+	{#if backError}
+		<div class="error-message" style="margin: auto;">{backError}</div>
+	{:else}
+		<div class="results">
+			<div>{results.length} résultats</div>
+			{#each results as result}
+				<div on:click={changeSelectedResult(result)} class="result">
+					{result[0]}
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<div class="side-peek">
 		{#if highlightedResult}
@@ -164,6 +191,11 @@
 				<GifExporter origin={textSnapshot} destination={highlightedResult}></GifExporter>
 			</div>
 		{/if}
+	</div>
+
+	<div class="encore" class:visible={displayEncore} on:click={encore}>
+		Encore !
+		<div bind:this={encoreTooltip}> <span> ? </span> </div>
 	</div>
 </main>
 
@@ -257,20 +289,10 @@
 	}
 
 	.settings {
-		font-size: 0.6rem;
+		font-size: 0.7rem;
 		background-color: white;
 		& .param {
 			display: flex;
-		}
-		&::after {
-			content: ' ';
-			position: absolute;
-			bottom: 100%; /* At the top of the tooltip */
-			left: 50%;
-			margin-left: -5px;
-			border-width: 5px;
-			border-style: solid;
-			border-color: transparent transparent white transparent;
 		}
 
 		& .title {
@@ -289,7 +311,7 @@
 			height: 25px;
 			margin: 0 0 0 5px;
 		}
-		
+
 		& .include-input {
 			max-width: 10rem;
 			flex: 1 0 60px;
@@ -298,6 +320,39 @@
 			align-items: center;
 		}
 	}
+
+	.encore {
+		z-index: 2;
+		position: sticky;
+		cursor: pointer;
+		bottom: 20px;
+		margin-bottom: 20px;
+		left: 20px;
+		width: max-content;
+		background-color: white;
+		padding: 20px;
+		border-radius: 25px;
+		border: 1px solid #917956;
+		visibility: hidden;
+		&.visible {
+			visibility: visible;
+		}
+		& > div {
+			position: absolute;
+			top: 0;
+			left: -5px;
+			background-color: #917956;
+			width: 20px;
+			height: 20px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			border-radius: 100%;
+			font-size: 0.6rem;
+			border: 1px solid #584a35;
+		}
+	}
+
 	@media screen and (max-width: 400px) {
 		.logo {
 			display: none;

@@ -172,6 +172,12 @@ enum SearchType {
     EXACT,
 }
 
+#[derive(Serialize)]
+struct AnagramResult {
+    anagrams: Vec<(String, f32)>,
+    was_truncated: bool
+}
+
 fn encoded_letters_to_bloom_u32(input: &[u8]) -> u32 {
     let mut bloom: u32 = 0;
     input.iter().for_each(|c| {
@@ -419,8 +425,9 @@ impl Index {
 
     /**
      * Get matchable words, always including words containing the most letters
+     * Returns true alongside vector if it was truncated randomly
      */
-    fn get_matchable_words(&self, input_letters: &[u8], search_type: SearchType, word_to_include: &[u8],) -> Result<Vec<&Word>, String> {
+    fn get_matchable_words(&self, input_letters: &[u8], search_type: SearchType, word_to_include: &[u8],) -> Result<(Vec<&Word>, bool), String> {
         let mut words: Vec<&Word> = self.word_defs
             .iter()
             .filter(| w| {
@@ -449,12 +456,14 @@ impl Index {
                 let removed = words.remove(index.unwrap().0);
                 words.push(removed);
             } else {
-                return Err(String::from("Le mot fourni n'est pas contenu dans l'index"))
+                return Err(String::from("Le mot à inclure n'est pas contenu dans l'index"))
             }
+            return Ok((words, false));
         }
         if words.len() <= MAX_MATCHABLE_WORDS {
-            return Ok(words);
+            return Ok((words, false));
         }
+        // println!("{} words before truncate", words.len());
         /* Always include NB_BIG_WORDS_INCLUDED bigger words */
         let mut rng = thread_rng();
         let mut result = Vec::new();
@@ -472,7 +481,7 @@ impl Index {
             let length_b: u32 = b.letters_sorted_range.end - b.letters_sorted_range.start;
             return length_a.partial_cmp(&length_b).unwrap();
         });
-        Ok(result)
+        Ok((result, true))
 
     }
 
@@ -483,7 +492,7 @@ impl Index {
      * TODO:
      * - If we have a lot of words matching letters, rank them by occurence in some reference corpora 
      */
-    fn find_anagrams_reverse(&self, input: String, search_type: SearchType, word_to_include: String) -> Result<Vec<(String, f32)>, String> {
+    fn find_anagrams_reverse(&self, input: String, search_type: SearchType, word_to_include: String) -> Result<AnagramResult, String> {
         let max_cand_to_find = 10000;
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
@@ -494,7 +503,6 @@ impl Index {
         let mut enough_found = false;
         let mut mode_include = false;
         let mut sorted_to_include : Vec<u8> = vec![];
-        println!("{}", word_to_include);
         if word_to_include.len() > 0 {
             mode_include = true;
             sorted_to_include = self.process_input(word_to_include);
@@ -505,7 +513,7 @@ impl Index {
         if matchable_words_res.is_err() {
             return Err(matchable_words_res.unwrap_err());
         }
-        let matchable_words = matchable_words_res.unwrap();
+        let (matchable_words, was_truncated) = matchable_words_res.unwrap();
         let nb_matchable_words = matchable_words.len();
         // println!("{} matchabled words", matchable_words.len());
         for (index, word) in matchable_words.iter().enumerate().rev() {
@@ -596,7 +604,7 @@ impl Index {
         // println!("Time to find best permutations: {:.2?}", start_scoring.elapsed());
         // println!("Found {} anagrams", str_with_scores.len());
 
-        Ok(str_with_scores)
+        Ok(AnagramResult { anagrams: str_with_scores, was_truncated})
     }
 
 }
@@ -657,7 +665,6 @@ struct Matching {
 
 impl<'a> Matching {
 
-
     fn best_permutation(&self, index: &Index, matchable_words: &[&Word]) -> (String, f32) {
         let mut best_perm = vec![];
         let mut best_score = -1.0;
@@ -672,7 +679,6 @@ impl<'a> Matching {
                 let pos_n_gram: (Option<PosTag>, Option<PosTag>, Option<PosTag>, Option<PosTag>) = pos_tuple_from_words(&combination, &matchable_words);
                 if let Some(occs) = index.pos_n_grams.get(&pos_n_gram) {
                     score *= occs;
-
                 }
                 if score > best_score {
                     best_score = score;
@@ -687,10 +693,7 @@ impl<'a> Matching {
             .count();
         let mut best_perm_score = best_score / (self.matched.len().pow(2) as f32);
         /* Penalize expression with lots of small words */
-        best_perm_score = best_perm_score / (1.0 + nb_small_words as f32);
-        // if nb_small_words == self.matched_size as usize {
-        //     best_perm_score = best_perm_score / 2.0;
-        // }
+        best_perm_score = best_perm_score / (1.0 + nb_small_words as f32).powf(1.5);
         (self._matched_to_string(&best_perm, index, matchable_words), best_perm_score)
     }
 
@@ -753,7 +756,6 @@ impl<'a> Matching {
 }
 
 
-/// An API error serializable to JSON.
 #[derive(Serialize)]
 struct ErrorMessage {
     code: u16,

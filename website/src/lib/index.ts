@@ -1,10 +1,12 @@
 import * as gifenc from 'gifenc';
 
 export async function loadAnagrams({ input = "", searchType = "ROOT", wordToInclude = null } = {}) {
-  console.log(wordToInclude);
   const queryParams = new URLSearchParams({ input, 'search_type': searchType });
   if (wordToInclude) queryParams.append('word_to_include', wordToInclude);
   const res = await fetch(`query?${queryParams.toString()}`);
+  if (res.status >= 500) {
+    return {code: res.status, message: "Erreur serveur"};
+  }
   return await res.json();
 }
 
