@@ -781,7 +781,7 @@ async fn main() {
 
 
     let index: Index = Index::new();
-    let route = warp::path!("query")
+    let route = warp::path!("engine"/"query")
     .and(warp::query::<QueryParams>())
     .map(move |q: QueryParams| {
             let query_input: String = decode(&q.input).expect("UTF-8").into_owned();

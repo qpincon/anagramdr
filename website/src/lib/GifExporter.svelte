@@ -36,8 +36,10 @@
 		animationComponent.startAnimation();
 	}, 1000);
 
-	function download() {
-		animationComponent.startAnimation(true);
+	async function download() {
+		const url = await animationComponent.startAnimation(true);
+		console.log(url);
+		// window.
 	}
 
 </script>

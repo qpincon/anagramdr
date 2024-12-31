@@ -3,7 +3,7 @@ import * as gifenc from 'gifenc';
 export async function loadAnagrams({ input = "", searchType = "ROOT", wordToInclude = null } = {}) {
   const queryParams = new URLSearchParams({ input, 'search_type': searchType });
   if (wordToInclude) queryParams.append('word_to_include', wordToInclude);
-  const res = await fetch(`query?${queryParams.toString()}`);
+  const res = await fetch(`engine/query?${queryParams.toString()}`);
   if (res.status >= 500) {
     return {code: res.status, message: "Erreur serveur"};
   }
@@ -63,6 +63,13 @@ export async function encodeToGif({ ctx, renderFunction, duration }) {
   const buffer = gif.bytesView();
   const blob = new Blob([buffer], { type: 'image/gif' });
   const url = URL.createObjectURL(blob);
+  
+  // const encoded = await bufferToBase64(buffer);
+  // const img = new Image();
+  // img.src = `data:image/gif;base64,${encoded}`;
+  // document.body.append(img);
+  // console.log(encoded.length)
+
   return url;
   // download(buffer, 'animation.gif', { type: 'image/gif' });
 }
@@ -76,4 +83,16 @@ export function areStringsAnagrams(s1: string, s2: string): boolean {
   const diacriticsRemoved2 = sortedStringNormalized(s2);
   // console.log(diacriticsRemoved1, diacriticsRemoved2);
   return diacriticsRemoved1 === diacriticsRemoved2;
+}
+
+// note: `buffer` arg can be an ArrayBuffer or a Uint8Array
+export async function bufferToBase64(buffer) {
+  // use a FileReader to generate a base64 data URI:
+  const base64url: string = await new Promise(r => {
+    const reader = new FileReader()
+    reader.onload = () => r(reader.result as string)
+    reader.readAsDataURL(new Blob([buffer]))
+  });
+  // remove the `data:...;base64,` part from the start
+  return base64url.slice(base64url.indexOf(',') + 1);
 }

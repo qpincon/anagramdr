@@ -5,12 +5,13 @@ export default defineConfig({
     plugins: [viteCommonjs(), sveltekit()],
     server: {
         proxy: {
-            '/query': 'http://localhost:3030',
+            '/engine': {
+                target: 'http://localhost:3030',
+                changeOrigin: true,
+            },
         },
     },
     define: {
-        // By default, Vite doesn't include shims for NodeJS/
-        // necessary for segment analytics lib to work
         global: {},
-      },
+    },
 });

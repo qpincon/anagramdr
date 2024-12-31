@@ -1,5 +1,5 @@
 <script>
-    import '../app.scss';
+    import '../../app.scss';
     import { onMount } from 'svelte';
     const svgDefinition = `
     <svg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'>

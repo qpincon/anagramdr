@@ -25,6 +25,7 @@ Design:
 - [ ] Avoir un bouton "retour en haut"
 - [x] Engine: mot à inclure feature
 - [ ] Ajouter loader
+- [ ] SEO 
 
 Baseline:
 

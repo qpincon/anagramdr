@@ -4,9 +4,9 @@
 	import { goto } from '$app/navigation';
 	import backImg from '$lib/img/back.svg';
 
-	import Logo from '../../lib/Logo.svelte';
-	import GifExporter from '../../lib/GifExporter.svelte';
-	import { sortedStringNormalized } from '../../lib';
+	import Logo from '$lib/Logo.svelte';
+	import GifExporter from '$lib/GifExporter.svelte';
+	import { sortedStringNormalized } from '$lib';
 	import settingsIcon from '$lib/img/settings.svg';
 	import tippy from 'tippy.js';
 
@@ -47,9 +47,9 @@
 		});
 
 		tippy(encoreTooltip, {
-			content: "<span> Il y a beaucoup d'anagrammes qui peuvent sortir d'une expression donnée, donc on en pioche juste quelques-uns, comme dans une loterie.</span> <br/>  <span>Résultat : chaque recherche, c'est la surprise du chef !</span>",
+			content: "<span> Beaucoup d'anagrammes peuvent sortir d'une expression donnée, donc on en pioche juste quelques-uns, comme la loterie.</span> <br/>  <span>Résultat : chaque recherche, c'est la surprise du chef !</span>",
 			theme: 'light',
-			allowHTML: true
+			allowHTML: true,
 		});
 	});
 
@@ -130,7 +130,6 @@
 		<div class="input">
 			<input
 				class="search"
-				on:keyup={onSearchKeyUp}
 				on:input={validateInput}
 				bind:value={textField}
 				type="search"
@@ -155,7 +154,6 @@
 						name="include"
 						bind:value={toIncludeInput}
 						on:input={validateToInclude}
-						on:keyup={onSearchKeyUp}
 					/>
 					{#if toIncludeError}
 						<span class="error-message include"> {toIncludeError} </span>
@@ -359,6 +357,10 @@
 		}
 		.search {
 			margin: auto;
+		}
+
+		.peek-opened .encore {
+			visibility: hidden !important;
 		}
 	}
 	@media screen and (max-width: 1000px) {

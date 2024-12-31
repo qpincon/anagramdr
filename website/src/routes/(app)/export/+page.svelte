@@ -1,8 +1,8 @@
 <script>
 	import { onMount } from 'svelte';
-	import { areStringsAnagrams } from '../../lib';
-	import GifExporter from '../../lib/GifExporter.svelte';
-	import Logo from '../../lib/Logo.svelte';
+	import { areStringsAnagrams } from '$lib';
+	import GifExporter from '$lib/GifExporter.svelte';
+	import Logo from '$lib/Logo.svelte';
 	import { goto } from '$app/navigation';
 
 	let origin = "";

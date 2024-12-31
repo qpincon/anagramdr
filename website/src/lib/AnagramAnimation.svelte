@@ -1,5 +1,5 @@
 <script>
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { encodeToGif } from './index';
 	// import * as flubber from 'flubber';
 	import opentype from 'opentype.js';
@@ -9,7 +9,8 @@
 	export let targetText;
 	export let textColor = 'black';
 	export let animationDurationMs = 5000;
-	
+	export let hidden = false;
+
 	let animationId = null;
 	let scale = 1;
 	onMount(() => {
@@ -18,14 +19,14 @@
 
 	let canvasElement;
 	let canvasElementForExport;
-	const urlRegex = /url\(.*?\)/g;
-	export function startAnimation(forExport = false) {
 
+	export function startAnimation(forExport = false) {
+		if (!sourceText || !targetText) return;
 		if (!forExport && animationId) {
 			cancelAnimationFrame(animationId);
 			animationId = null;
 		}
-		animateAnagram(sourceText, targetText, !forExport, forExport);
+		return animateAnagram(sourceText, targetText, !forExport, forExport);
 		// getLoadedFontsUrls();
 	}
 
@@ -34,12 +35,12 @@
 		const element = canvasElement.parentElement;
 		const computedStyle = getComputedStyle(element);
 
-		let elementWidth = element.clientWidth;   // width with padding
+		let elementWidth = element.clientWidth; // width with padding
 
 		if (element.clientWidth < 100) {
 			await new Promise((res, _) => {
-				setTimeout(() => res(), 200)
-			})
+				setTimeout(() => res(), 200);
+			});
 			return getMaxAvailableSpace();
 		}
 		elementWidth -= parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
@@ -47,6 +48,7 @@
 		return elementWidth;
 	}
 
+	const urlRegex = /url\(.*?\)/g;
 	function getLoadedFontsUrls() {
 		const fonts = [];
 		for (let i = 0; i < document.styleSheets[0].cssRules.length; i++) {
@@ -109,7 +111,7 @@
 		const lastDestChar = destCharArray[destCharArray.length - 1];
 		let usedCanvas = exportToGif ? canvasElementForExport : canvasElement;
 		if (!usedCanvas) return;
-		const ctx = usedCanvas.getContext('2d',  { willReadFrequently: true });
+		const ctx = usedCanvas.getContext('2d', { willReadFrequently: true });
 		const fontSize = 50;
 		ctx.textBaseline = 'middle';
 
@@ -127,10 +129,8 @@
 			destXPositions[destXPositions.length - 1] + letterWidths[lastDestChar]
 		);
 
-
-
 		if (usedCanvas.width > maxWidth) {
-			scale = maxWidth/usedCanvas.width
+			scale = maxWidth / usedCanvas.width;
 		} else {
 			scale = 1;
 		}
@@ -197,9 +197,9 @@
 				switchLetters(progress, 0.9, state, 'source');
 				const x = state.startX + (state.destX - state.startX) * p;
 				let y;
-				const baseY = (usedCanvas.height / 2) + 15;
+				const baseY = usedCanvas.height / 2 + 15;
 				if (state.destY) {
-					y = baseY + (state.destY * p);
+					y = baseY + state.destY * p;
 				} else {
 					if (Math.abs(state.startX - state.destX) < 30) y = 0;
 					else {
@@ -211,15 +211,14 @@
 				ctx.fillText(state.char, x, y);
 			}
 		}
-		
-		
+
 		if (exportToGif) {
-			const url = await encodeToGif({
+			return encodeToGif({
 				ctx,
 				duration: animationDurationMs / 1000,
 				renderFunction: draw
 			});
-			window.open(url);
+			// window.open(url);
 		} else {
 			await animate({
 				duration: animationDurationMs,
@@ -283,23 +282,29 @@
 		});
 	}
 
-	let testSvg;
-	let testSvg2;
-	let flubberSvg;
+	// let testSvg;
+	// let testSvg2;
+	// let flubberSvg;
 </script>
 
-<canvas bind:this={canvasElement} 
-style="
+{#if !hidden}
+	<canvas
+		bind:this={canvasElement}
+		style="
   transform: scale({scale}); 
   transform-origin: left;
   margin: auto;
   display: flex;
-"></canvas>
-<canvas bind:this={canvasElementForExport} 
-style="
+"
+	></canvas>
+{/if}
+<canvas
+	bind:this={canvasElementForExport}
+	style="
   position: absolute; 
   top: -200px;
-"></canvas>
+"
+></canvas>
 <!-- <svg xmlns="http://www.w3.org/2000/svg" width="600" height="300">
 	<path bind:this={testSvg}> </path>
 </svg>
