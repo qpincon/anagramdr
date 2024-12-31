@@ -32,6 +32,11 @@
     });
 </script>
   
+<svelte:head>
+	<title>Anagramdr</title>
+	<meta name="description" content="Anagrammeur d'expression depuis 2024" />
+</svelte:head>
+
 <div class="bg">
     <div bind:this={noise} class="bg noise"> </div>
     <div class="bg bg-1"> </div>

@@ -19,7 +19,7 @@
 <div class="container">
 	<div class="logo">
 		<Logo></Logo>
-		<strong class="subtitle"> <i> Anagrammise ce qu'il te plaît ! </i> </strong>
+		<h2 class="subtitle"> <i> Anagrammise ce qu'il te plaît ! </i> </h2>
 	</div>
 	<input bind:value={inputText} type="search" on:keyup={onSearchKeyUp} placeholder="Ecrivez n'importe quoi" />
 	<button on:click={() => goToResults()} >Chercher!</button>
@@ -32,6 +32,9 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+	}
+	.subtitle {
+		font-weight: normal;
 	}
 
 	.logo {

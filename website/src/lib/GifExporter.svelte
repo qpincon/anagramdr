@@ -1,11 +1,12 @@
 <script>
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { areStringsAnagrams } from '.';
 	import AnagramAnimation from './AnagramAnimation.svelte';
 	import ColorPicker from 'svelte-awesome-color-picker';
 	import { debounce } from 'lodash-es';
-	import downloadIcon from '$lib/img/download.svg';
+	import shareIcon from '$lib/img/share.svg';
 	import externalLinkIcon from '$lib/img/external-link.svg';
+	import tippy from 'tippy.js';
 
 	const DEFAULT_ANIMATION_TIME = 5;
 	const DEFAULT_COLOR = '#000000';
@@ -19,7 +20,9 @@
 
 	let isValid = false;
 	let animationComponent;
+	let shareButton;
 
+	$: vizUrl = `/viz?origin=${origin}&destination=${destination}&duration=${animationDurationSec}&color=${textColor}`;
 	$: if (origin || destination) {
 		isValid = areStringsAnagrams(origin, destination);
 		tick().then(() => {
@@ -31,17 +34,31 @@
 		animateDebounced();
 	}
 
+	onMount(() => {
+		tippy(shareButton, {
+			duration: [100, 200],
+			trigger: 'click',
+			theme: 'light',
+			content: 'Copied to clipboard',
+			arrow: false,
+			onShow(instance) {
+				setTimeout(() => {
+					instance.hide();
+				}, 1000);
+			}
+		});
+	});
+
 	const animateDebounced = debounce(() => {
 		if (!animationComponent) return;
 		animationComponent.startAnimation();
 	}, 1000);
 
-	async function download() {
-		const url = await animationComponent.startAnimation(true);
-		console.log(url);
-		// window.
-	}
 
+	function shareClicked() {
+		const curUrl = window.location;
+		navigator.clipboard.writeText(`${curUrl.origin}${vizUrl}`);
+	}
 </script>
 
 <div class="exporter">
@@ -60,12 +77,11 @@
 			</div>
 
 			<div class="export">
-				<img src={downloadIcon} title="Télécharger GIF" on:click={download} />
-				<!-- <img src={shareIcon} title="Partager URL" on:click={share}> -->
+				<img src={shareIcon} title="Partager URL" on:click={shareClicked} bind:this={shareButton} />
 				{#if showExport}
-				<a href="{`/export?origin=${origin}&destination=${destination}`}">
-					<img src={externalLinkIcon} title="Ouvrir outil d'export" />
-				</a>
+					<a href={`/export?origin=${origin}&destination=${destination}`}>
+						<img src={externalLinkIcon} title="Ouvrir outil d'export" />
+					</a>
 				{/if}
 			</div>
 

@@ -23,6 +23,13 @@
 	});
 </script>
 
+<svelte:head>
+	<meta property="og:title" content="Anagramdr" />
+	<meta property="og:description" content="Anagrammeur d'expression depuis 2024." />
+	<meta property="og:url" content="https://anagramdr.com" />
+	<meta property="og:image" content="https://anagramdr.com/logo.png" />
+</svelte:head>
+
 {#if blobUrl}
 	<div class="container">
 		<div class="logo"><Logo fontSize="1em"></Logo></div>

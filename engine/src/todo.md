@@ -13,7 +13,7 @@ Design:
 - [x] Afficher erreur dans search bar quand > à un nombre de charactères
 - [ ] Ajouter un endpoint pour l'export pour tracking
 - [x] Ajouter page pour juste GifExporter
-- [ ] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi
+- [x] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi
 - ~[ ] Garder le focus quand on lance une recherche pour pouvoir re-generer facilement~
 - [ ] Ajouter options avancées: recherche exacte, recherche avec un mot en particulier
 - [x] Ajouter durée en seconde près du slider
@@ -21,11 +21,14 @@ Design:
 - [x] Ajouter footer
 - [x] Debugger majuscules dans expr initiale
 - [x] Bouger liste de mots vers la gauche quand drawer ouvert
-- [ ] Export gif: ajouter route qui ouvre un blob?
+- [x] Export gif: ajouter route qui ouvre un blob?
 - [ ] Avoir un bouton "retour en haut"
 - [x] Engine: mot à inclure feature
 - [ ] Ajouter loader
-- [ ] SEO 
+- [x] SEO (title et meta)
+- [ ] Améliorer favicon?
+- [ ] Setup nginx
+- [ ] Setup tacking (gopanel)
 
 Baseline:
 
