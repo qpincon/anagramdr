@@ -22,13 +22,15 @@ Design:
 - [x] Debugger majuscules dans expr initiale
 - [x] Bouger liste de mots vers la gauche quand drawer ouvert
 - [x] Export gif: ajouter route qui ouvre un blob?
-- [ ] Avoir un bouton "retour en haut"
+- [x] Avoir un bouton "retour en haut"
 - [x] Engine: mot à inclure feature
-- [ ] Ajouter loader
+- [x] Ajouter loader
 - [x] SEO (title et meta)
 - [ ] Améliorer favicon?
 - [ ] Setup nginx
 - [ ] Setup tacking (gopanel)
+- [ ] nginx rate limiting
+- [ ] Lien vers outil d'export
 
 Baseline:
 

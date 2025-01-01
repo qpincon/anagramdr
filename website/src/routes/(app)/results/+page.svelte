@@ -1,14 +1,17 @@
 <script>
 	import { onMount } from 'svelte';
 	import { loadAnagrams } from '$lib';
-	import { goto } from '$app/navigation';
+	import { goto, pushState } from '$app/navigation';
 	import backImg from '$lib/img/back.svg';
-
+	import { navigating } from '$app/stores';
 	import Logo from '$lib/Logo.svelte';
 	import GifExporter from '$lib/GifExporter.svelte';
 	import { sortedStringNormalized } from '$lib';
 	import settingsIcon from '$lib/img/settings.svg';
+	import upArrowIcon from '$lib/img/up.svg';
+	import spinner from '$lib/img/puff.svg';
 	import tippy from 'tippy.js';
+	import { debounce } from 'lodash-es';
 
 	const MAX_NB_LETTERS = 20;
 
@@ -22,22 +25,26 @@
 	let validationError = null;
 	let settingsImgElement;
 	let settingsContentElement;
-	let toIncludeInput;
+	let toIncludeInput = '';
 	let toIncludeError = null;
 	let isSearchExact = false;
 	let encoreTooltip;
 	let displayEncore = false;
+	let displayBackToTop = false;
+	let loading = false;
 
 	$: searchType = isSearchExact ? 'EXACT' : 'ROOT';
 
+	$: if($navigating) {
+		const dest = $navigating.to;
+		const params = Object.fromEntries(new URL(dest.url).searchParams);
+		loadPageDeb(params);
+	};
+
+	const loadPageDeb = debounce(loadPage, 200, {leading: true, trailing: false});
+	
 	onMount(async () => {
-		if (!data.input) goto(`/`);
-		textSnapshot = textField = data.input;
-		isSearchExact = data.search_type === 'ROOT' ? false : true;
-		if (data.word_to_include) {
-			toIncludeInput = data.word_to_include;
-		}
-		await refreshResults(data);
+		loadPage(data);
 		settingsContentElement.style.display = 'block';
 		tippy(settingsImgElement, {
 			content: settingsContentElement,
@@ -47,32 +54,47 @@
 		});
 
 		tippy(encoreTooltip, {
-			content: "<span> Beaucoup d'anagrammes peuvent sortir d'une expression donnée, donc on en pioche juste quelques-uns, comme la loterie.</span> <br/>  <span>Résultat : chaque recherche, c'est la surprise du chef !</span>",
+			content:
+				"<span> Beaucoup d'anagrammes peuvent sortir d'une expression donnée, donc de l'aléatoire est utilisé pour les choisir.</span> <br/>  <span>Résultat : chaque recherche, c'est la surprise du chef !</span>",
 			theme: 'light',
-			allowHTML: true,
+			allowHTML: true
 		});
 	});
+
+	function loadPage(inputObject) {
+		if (!inputObject.input) goto(`/`);
+		const searchExact = inputObject.search_type === 'ROOT' ? false : true;
+		const inToInclude = inputObject.word_to_include ?? '';
+		isSearchExact = searchExact;
+		textSnapshot = textField = inputObject.input;
+		if (inputObject.word_to_include) {
+			toIncludeInput = inputObject.word_to_include;
+		}
+		return refreshResults(inputObject);
+	}
 
 	function goToResults() {
 		const params = new URLSearchParams();
 		textSnapshot = textField;
 		params.set('input', textSnapshot);
 		params.set('search_type', searchType);
-		if (toIncludeInput) params.set('word_to_include', toIncludeInput);
+		if (toIncludeInput.length) params.set('word_to_include', toIncludeInput);
 		goto(`/results?${params.toString()}`);
-		refreshResults();
 	}
 
 	async function refreshResults() {
 		highlightedResult = null;
+		loading = true;
+		results = [];
 		const res = await loadAnagrams({
 			input: textSnapshot,
 			searchType,
 			wordToInclude: toIncludeInput
 		});
+		loading = false;
 		if (res.code) {
 			backError = res.message;
-			results = [];
+			displayEncore = false;
 		} else {
 			results = res.anagrams;
 			displayEncore = res.was_truncated;
@@ -93,6 +115,7 @@
 		} else {
 			validationError = null;
 		}
+		toIncludeInput = '';
 	}
 
 	function changeSelectedResult(result) {
@@ -116,24 +139,27 @@
 	}
 
 	function encore() {
-		window.scrollTo(0,0);
+		window.scrollTo(0, 0);
 		refreshResults();
+	}
+
+	function backToTop() {
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
+	function onScroll(e) {
+		displayBackToTop = window.scrollY > 1000;
 	}
 </script>
 
-<svelte:window on:keyup={onSearchKeyUp} />
+<svelte:window on:keyup={onSearchKeyUp} on:scroll={onScroll} />
 <main class:peek-opened={highlightedResult !== null} class:error={validationError}>
 	<header>
 		<div class="logo">
 			<Logo></Logo>
 		</div>
 		<div class="input">
-			<input
-				class="search"
-				on:input={validateInput}
-				bind:value={textField}
-				type="search"
-			/>
+			<input class="search" on:input={validateInput} bind:value={textField} type="search" />
 			{#if validationError}
 				<small class="error-message"> {validationError}</small>
 			{/if}
@@ -165,6 +191,10 @@
 
 	{#if backError}
 		<div class="error-message" style="margin: auto;">{backError}</div>
+	{:else if loading}
+		<div class="spinner">
+			<img src={spinner} />
+		</div>
 	{:else}
 		<div class="results">
 			<div>{results.length} résultats</div>
@@ -193,14 +223,24 @@
 
 	<div class="encore" class:visible={displayEncore} on:click={encore}>
 		Encore !
-		<div bind:this={encoreTooltip}> <span> ? </span> </div>
+		<div bind:this={encoreTooltip}><span> ? </span></div>
 	</div>
+
+	{#if displayBackToTop}
+		<div class="back-to-top" on:click={backToTop}>
+			<img src={upArrowIcon} />
+		</div>
+	{/if}
 </main>
 
 <style lang="scss">
 	.logo {
 		margin: auto 10px auto 0;
 		order: 1;
+	}
+	.spinner {
+		margin: 50px auto;
+		width: fit-content;
 	}
 	.back {
 		margin: 5px;
@@ -316,6 +356,20 @@
 			display: flex;
 			flex-direction: column;
 			align-items: center;
+		}
+	}
+	.back-to-top {
+		z-index: 2;
+		position: sticky;
+		cursor: pointer;
+		bottom: 100px;
+		left: 50px;
+		background-color: white;
+		border-radius: 25px;
+		border: 1px solid #917956;
+		width: fit-content;
+		& > img {
+			padding: 10px;
 		}
 	}
 

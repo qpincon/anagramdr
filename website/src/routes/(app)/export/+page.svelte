@@ -8,11 +8,9 @@
 	let origin = "";
 	let destination = "";
 
-    // origin, destination
     export let data;
 
-    onMount(async () => {
-        console.log(data);
+    onMount(() => {
         origin = data.origin;
         destination = data.destination;
 	});
@@ -23,7 +21,10 @@
 		const params = new URLSearchParams();
 		params.set('origin', origin);
 		params.set('destination', destination);
-		goto(`/export?${params.toString()}`); 
+		const curUrl = window.location.search.replace('?', '');
+		if (curUrl !== params.toString()) {
+			goto(`/export?${params.toString()}`); 
+		}
 	}
 </script>
 

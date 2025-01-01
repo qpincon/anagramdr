@@ -22,7 +22,7 @@
 	let animationComponent;
 	let shareButton;
 
-	$: vizUrl = `/viz?origin=${origin}&destination=${destination}&duration=${animationDurationSec}&color=${textColor}`;
+	$: vizUrl = `/viz?origin=${origin}&destination=${destination}&duration=${animationDurationSec}&color=${textColor.replace('#', '')}`;
 	$: if (origin || destination) {
 		isValid = areStringsAnagrams(origin, destination);
 		tick().then(() => {
@@ -39,7 +39,7 @@
 			duration: [100, 200],
 			trigger: 'click',
 			theme: 'light',
-			content: 'Copied to clipboard',
+			content: 'Lien copié dans le presse-papier !',
 			arrow: false,
 			onShow(instance) {
 				setTimeout(() => {

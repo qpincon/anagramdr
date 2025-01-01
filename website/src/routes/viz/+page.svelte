@@ -16,7 +16,9 @@
 		origin = data.origin;
 		destination = data.destination;
 		duration = data.duration ?? 5;
-		color = data.color ?? '#000000';
+		color = data.color ? `#${data.color}` : '#000000';
+		console.log(data);
+		console.log(color);
 		document.body.style.backgroundColor = '#202020';
 		await tick();
 		blobUrl = await component.startAnimation(true);
@@ -41,7 +43,7 @@
 		sourceText={origin}
 		targetText={destination}
 		animationDurationMs={duration * 1000}
-		{color}
+		textColor={color}
 	></AnagramAnimation>
 {/if}
 
