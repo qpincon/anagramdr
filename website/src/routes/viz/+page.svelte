@@ -2,8 +2,7 @@
 	import AnagramAnimation from '$lib/AnagramAnimation.svelte';
 	import { onMount, tick } from 'svelte';
 	import Logo from '$lib/Logo.svelte';
-
-	export let data;
+	import '../../fonts.scss';
 
 	let origin = '';
 	let destination = '';
@@ -13,10 +12,11 @@
 	let blobUrl;
 
 	onMount(async () => {
-		origin = data.origin;
-		destination = data.destination;
-		duration = data.duration ?? 5;
-		color = data.color ? `#${data.color}` : '#000000';
+		const params = Object.fromEntries(new URLSearchParams(window.location.search));
+		origin = params.origin;
+		destination = params.destination;
+		duration = params.duration ?? 5;
+		color = params.color ? `#${params.color}` : '#000000';
 		document.body.style.backgroundColor = '#202020';
 		await tick();
 		blobUrl = await component.startAnimation(true);

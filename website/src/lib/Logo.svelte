@@ -13,8 +13,23 @@
 <style>
 	a {
 		text-decoration: none !important;
+		color: #7e7e7e;
 	}
-    h1 {
-        margin: 0;
-    }
+	h1 {
+		margin: 0;
+	}
+
+	.mdr {
+		font-size: 1em;
+		& > span:first-child {
+			color: #7e2e00;
+		}
+		& > span:nth-child(2) {
+			color: #006b5f;
+		}
+		& > span:nth-child(3) {
+			color: #63baab;
+		}
+	}
+
 </style>

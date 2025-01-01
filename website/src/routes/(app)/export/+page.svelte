@@ -8,11 +8,11 @@
 	let origin = "";
 	let destination = "";
 
-    export let data;
 
     onMount(() => {
-        origin = data.origin;
-        destination = data.destination;
+		const params = Object.fromEntries(new URLSearchParams(window.location.search));
+        origin = params.origin;
+        destination = params.destination;
 	});
 
     $: isValidAnagram = origin !== "" && destination !== "" && areStringsAnagrams(origin, destination);

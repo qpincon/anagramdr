@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { encodeToGif } from './index';
 	// import * as flubber from 'flubber';
-	import opentype from 'opentype.js';
+	// import opentype from 'opentype.js';
 	// import { flattenSVG } from 'flatten-svg';
 
 	export let sourceText;
@@ -90,15 +90,15 @@
 		return measurements;
 	}
 
-	async function prepareFont(
-		fontUrl = 'https://fonts.gstatic.com/s/fuzzybubbles/v7/6qLbKZMbrgv9pwtjPEVNV0F2Ds_WcxQKZw.woff2'
-		// fontUrl = 'https://fonts.gstatic.com/s/commissioner/v20/tDbw2o2WnlgI0FNDgduEk4jAhwgumbU1SVfU5BD8OuRL8OstC6KOhgvBYWSFJ-Mgdrgiju6fF8m0akXa.woff2'
-	) {
-		const req = await fetch(fontUrl);
-		const buffer = await req.arrayBuffer();
-		const decompressed = Module.decompress(buffer);
-		return opentype.parse(Uint8Array.from(decompressed).buffer);
-	}
+	// async function prepareFont(
+	// 	fontUrl = 'https://fonts.gstatic.com/s/fuzzybubbles/v7/6qLbKZMbrgv9pwtjPEVNV0F2Ds_WcxQKZw.woff2'
+	// 	// fontUrl = 'https://fonts.gstatic.com/s/commissioner/v20/tDbw2o2WnlgI0FNDgduEk4jAhwgumbU1SVfU5BD8OuRL8OstC6KOhgvBYWSFJ-Mgdrgiju6fF8m0akXa.woff2'
+	// ) {
+	// 	const req = await fetch(fontUrl);
+	// 	const buffer = await req.arrayBuffer();
+	// 	const decompressed = Module.decompress(buffer);
+	// 	return opentype.parse(Uint8Array.from(decompressed).buffer);
+	// }
 
 	async function animateAnagram(sourceStr, targetStr, loop = true, exportToGif = false) {
 		// const font = await prepareFont();

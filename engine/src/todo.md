@@ -15,7 +15,7 @@ Design:
 - [x] Ajouter page pour juste GifExporter
 - [x] Ajouter un bouton "Encore!" avec tooltip qui explique pourquoi
 - ~[ ] Garder le focus quand on lance une recherche pour pouvoir re-generer facilement~
-- [ ] Ajouter options avancées: recherche exacte, recherche avec un mot en particulier
+- [x] Ajouter options avancées: recherche exacte, recherche avec un mot en particulier
 - [x] Ajouter durée en seconde près du slider
 - [x] Monter limite de lettres
 - [x] Ajouter footer
@@ -30,7 +30,7 @@ Design:
 - [ ] Setup nginx
 - [ ] Setup tacking (gopanel)
 - [ ] nginx rate limiting
-- [ ] Lien vers outil d'export
+- [x] Lien vers outil d'export
 
 Baseline:
 

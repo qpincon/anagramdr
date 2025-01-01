@@ -63,7 +63,7 @@
 	{#if !isValid}
 		<span> Problème: L'expression d'origine et de destination ont des lettres pas en commun. </span>
 	{:else}
-		<div>
+	<div class="display">
 			<div class="canvas-container">
 				<AnagramAnimation
 					bind:this={animationComponent}
@@ -77,6 +77,7 @@
 			<div class="export">
 				<img src={shareIcon} title="Partager URL" on:click={shareClicked} bind:this={shareButton} />
 			</div>
+		</div>
 
 			<div class="params">
 				<ColorPicker
@@ -98,7 +99,6 @@
 					<span> {animationDurationSec}s</span>
 				</div>
 			</div>
-		</div>
 	{/if}
 </div>
 
@@ -106,19 +106,20 @@
 	.exporter {
 		margin-top: 1rem;
 	}
+	.display {
+		display: flex;
+		justify-content: center;
+	}
 	.canvas-container {
 		width: 80%;
 		border: 1px solid #91795683;
 		padding: 0 1rem;
 		border-radius: 5px;
-		margin: auto;
 	}
 
 	.export {
-		display: flex;
-		margin: auto;
-		width: 100%;
-		justify-content: center;
+		flex: 0 1 35px;
+		margin: auto auto auto 10px;
 		& img {
 			width: 35px;
 			cursor: pointer;

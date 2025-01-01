@@ -18,7 +18,6 @@
 	let results = [];
 	let highlightedResult = null;
 
-	export let data;
 	let textSnapshot;
 	let textField;
 	let backError = null;
@@ -45,8 +44,9 @@
 
 	const loadPageDeb = debounce(loadPage, 200, {leading: true, trailing: false});
 	
-	onMount(async () => {
-		loadPage(data);
+	onMount(() => {
+		const params = Object.fromEntries(new URLSearchParams(window.location.search));
+		loadPage(params);
 		settingsContentElement.style.display = 'block';
 		tippy(settingsImgElement, {
 			content: settingsContentElement,
