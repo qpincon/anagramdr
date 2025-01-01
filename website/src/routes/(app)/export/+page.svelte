@@ -44,7 +44,7 @@
 		</div>
 
         {#if isValidAnagram} 
-            <GifExporter {origin} {destination} showExport={false}></GifExporter>
+            <GifExporter {origin} {destination}></GifExporter>
         {:else}
             <span style="color:#9B2318;">Les deux expressions ne sont pas des anagrammes </span>
         {/if}

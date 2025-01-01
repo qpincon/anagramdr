@@ -8,7 +8,7 @@
 		const params = new URLSearchParams();
 		params.set('input', inputText);
 		params.set('search_type', 'ROOT');
-		goto(`/results?${params.toString()}`); 
+		goto(`/resultats?${params.toString()}`); 
 	}
 
 	function onSearchKeyUp(e) {

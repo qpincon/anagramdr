@@ -45,6 +45,7 @@
 <slot />
 <footer>
     <span>Anagramdr @ 2024</span>
-    <a href="https://github.com/qpincon/anagramdr" target="_blank"> Voir code source </a>
+    <a href="/export?origin=un exemple&destination=exemple nu" > Outil d'export </a>
+    <a style="margin-left:auto; margin-right: 10px;" href="https://github.com/qpincon/anagramdr" target="_blank"> Voir code source </a>
 </footer>
   

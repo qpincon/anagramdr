@@ -37,8 +37,10 @@
 
 	$: if($navigating) {
 		const dest = $navigating.to;
-		const params = Object.fromEntries(new URL(dest.url).searchParams);
-		loadPageDeb(params);
+		if (dest.route.id.includes('resultats')) {
+			const params = Object.fromEntries(new URL(dest.url).searchParams);
+			loadPageDeb(params);
+		}
 	};
 
 	const loadPageDeb = debounce(loadPage, 200, {leading: true, trailing: false});
@@ -79,7 +81,7 @@
 		params.set('input', textSnapshot);
 		params.set('search_type', searchType);
 		if (toIncludeInput.length) params.set('word_to_include', toIncludeInput);
-		goto(`/results?${params.toString()}`);
+		goto(`/resultats?${params.toString()}`);
 	}
 
 	async function refreshResults() {

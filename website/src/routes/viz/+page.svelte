@@ -17,8 +17,6 @@
 		destination = data.destination;
 		duration = data.duration ?? 5;
 		color = data.color ? `#${data.color}` : '#000000';
-		console.log(data);
-		console.log(color);
 		document.body.style.backgroundColor = '#202020';
 		await tick();
 		blobUrl = await component.startAnimation(true);

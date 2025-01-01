@@ -5,7 +5,6 @@
 	import ColorPicker from 'svelte-awesome-color-picker';
 	import { debounce } from 'lodash-es';
 	import shareIcon from '$lib/img/share.svg';
-	import externalLinkIcon from '$lib/img/external-link.svg';
 	import tippy from 'tippy.js';
 
 	const DEFAULT_ANIMATION_TIME = 5;
@@ -13,7 +12,6 @@
 
 	export let origin;
 	export let destination;
-	export let showExport = true;
 
 	let animationDurationSec = DEFAULT_ANIMATION_TIME;
 	let textColor = DEFAULT_COLOR;
@@ -78,11 +76,6 @@
 
 			<div class="export">
 				<img src={shareIcon} title="Partager URL" on:click={shareClicked} bind:this={shareButton} />
-				{#if showExport}
-					<a href={`/export?origin=${origin}&destination=${destination}`}>
-						<img src={externalLinkIcon} title="Ouvrir outil d'export" />
-					</a>
-				{/if}
 			</div>
 
 			<div class="params">
@@ -98,7 +91,7 @@
 						type="range"
 						id="duration"
 						name="duration"
-						min="0"
+						min="1"
 						max="10"
 						bind:value={animationDurationSec}
 					/>
