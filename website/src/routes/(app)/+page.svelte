@@ -1,7 +1,12 @@
 <script>
 	import { goto } from '$app/navigation';
 	import Logo from '$lib/Logo.svelte';
+	import { onMount } from 'svelte';
 	let inputText = '';
+
+	onMount(() => {
+		document.body.style.backgroundColor = '';
+	})
 
 	function goToResults() {
 		if (!inputText.length) return;
