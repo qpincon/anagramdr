@@ -497,7 +497,7 @@ impl Index {
         let mut nb_found = 0;
         let sorted_input = self.process_input(input);
         if sorted_input.len() > MAX_QUERY_LETTERS {
-            return Err(format!("Too many letters ({}, max is {})", sorted_input.len(), MAX_QUERY_LETTERS));
+            return Err(format!("Trop de lettres ({}, le maximum est {})", sorted_input.len(), MAX_QUERY_LETTERS));
         }
         let mut candidates: Vec<Matching> = vec![];
         let mut enough_found = false;

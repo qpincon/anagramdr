@@ -26,11 +26,17 @@ Design:
 - [x] Engine: mot à inclure feature
 - [x] Ajouter loader
 - [x] SEO (title et meta)
-- [ ] Améliorer favicon?
-- [ ] Setup nginx
-- [ ] Setup tacking (gopanel)
+- [x] Améliorer favicon?
+- [x] Setup nginx
+- [x] Setup tacking (GoAccess)
 - [ ] nginx rate limiting
 - [x] Lien vers outil d'export
+- [x] Remettre back sur ordi
+- [x] Message plus clair quand aucun anagramme trouvé
+- [x] Validation input page principale (nombre + taille)
+- [ ] Exclure un mot ?
+- [x] Police + grosse sur les paramètres sur mobile
+- [x] Share : encode URI
 
 Baseline:
 

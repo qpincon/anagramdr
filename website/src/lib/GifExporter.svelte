@@ -55,7 +55,7 @@
 
 	function shareClicked() {
 		const curUrl = window.location;
-		navigator.clipboard.writeText(`${curUrl.origin}${vizUrl}`);
+		navigator.clipboard.writeText(encodeURI(`${curUrl.origin}${vizUrl}`));
 	}
 </script>
 

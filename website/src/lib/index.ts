@@ -1,5 +1,6 @@
 import * as gifenc from 'gifenc';
 
+export const MAX_NB_LETTERS = 20;
 export async function loadAnagrams({ input = "", searchType = "ROOT", wordToInclude = "" } = {}) {
   const queryParams = new URLSearchParams({ input, 'search_type': searchType });
   if (wordToInclude.length) queryParams.append('word_to_include', wordToInclude);

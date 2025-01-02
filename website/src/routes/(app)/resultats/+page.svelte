@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
-	import { loadAnagrams } from '$lib';
-	import { goto, pushState } from '$app/navigation';
+	import { loadAnagrams, MAX_NB_LETTERS } from '$lib';
+	import { goto } from '$app/navigation';
 	import backImg from '$lib/img/back.svg';
 	import { navigating } from '$app/stores';
 	import Logo from '$lib/Logo.svelte';
@@ -13,7 +13,6 @@
 	import tippy from 'tippy.js';
 	import { debounce } from 'lodash-es';
 
-	const MAX_NB_LETTERS = 20;
 
 	let results = [];
 	let highlightedResult = null;
@@ -32,6 +31,8 @@
 	let displayBackToTop = false;
 	let loading = false;
 
+	let settingsTooltipHandle;
+
 	$: searchType = isSearchExact ? 'EXACT' : 'ROOT';
 
 	$: if($navigating) {
@@ -48,14 +49,14 @@
 		const params = Object.fromEntries(new URLSearchParams(window.location.search));
 		loadPage(params);
 		settingsContentElement.style.display = 'block';
-		tippy(settingsImgElement, {
+		settingsTooltipHandle = tippy(settingsImgElement, {
 			content: settingsContentElement,
 			theme: 'light',
 			trigger: 'click',
 			interactive: true
 		});
 
-		tippy(encoreTooltip, {
+		 tippy(encoreTooltip, {
 			content:
 				"<span> Beaucoup d'anagrammes peuvent sortir d'une expression donnée, donc de l'aléatoire est utilisé pour les choisir.</span> <br/>  <span>Résultat : chaque recherche, c'est la surprise du chef !</span>",
 			theme: 'light',
@@ -66,7 +67,6 @@
 	function loadPage(inputObject) {
 		if (!inputObject.input) goto(`/`);
 		const searchExact = inputObject.search_type === 'ROOT' ? false : true;
-		const inToInclude = inputObject.word_to_include ?? '';
 		isSearchExact = searchExact;
 		textSnapshot = textField = inputObject.input;
 		if (inputObject.word_to_include) {
@@ -88,6 +88,7 @@
 		highlightedResult = null;
 		loading = true;
 		results = [];
+		if (settingsTooltipHandle) settingsTooltipHandle.hide();
 		const res = await loadAnagrams({
 			input: textSnapshot,
 			searchType,
@@ -152,6 +153,7 @@
 	function onScroll(e) {
 		displayBackToTop = window.scrollY > 1000;
 	}
+
 </script>
 
 <svelte:window on:keyup={onSearchKeyUp} on:scroll={onScroll} />
@@ -199,12 +201,16 @@
 		</div>
 	{:else}
 		<div class="results">
+			{#if results.length}
 			<div>{results.length} résultats</div>
 			{#each results as result}
 				<div on:click={changeSelectedResult(result)} class="result">
 					{result[0]}
 				</div>
 			{/each}
+			{:else}
+			<div> Aucun résultat trouvé pour ces lettres... <br/> Essayez une autre expression !</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -248,7 +254,6 @@
 		margin: 5px;
 		width: 32px;
 		height: 32px;
-		display: none;
 	}
 
 	.icon {
@@ -423,14 +428,14 @@
 		.results {
 			margin: 0 0 0 5rem;
 		}
-		.back {
-			display: block;
-		}
 		.peek-opened .side-peek {
 			background-color: #f1dbbb;
 			width: 100vw !important;
 		}
 
+		.settings {
+			font-size: 1rem;
+		}
 		.settings-trigger {
 			order: 2;
 			margin: 0 10px 0 auto;
