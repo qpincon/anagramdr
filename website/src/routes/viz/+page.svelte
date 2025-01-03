@@ -54,10 +54,11 @@
 			width: fit-content;
 		}
 		position: absolute;
-		margin: auto;
+		margin: auto ;
 		inset: 0;
 		& img {
 			background: hsl(0, 0%, 90%);
+			width: 100%;
 		}
 	}
 </style>

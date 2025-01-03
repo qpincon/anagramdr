@@ -29,7 +29,7 @@ Design:
 - [x] Améliorer favicon?
 - [x] Setup nginx
 - [x] Setup tacking (GoAccess)
-- [ ] nginx rate limiting
+- [x] nginx rate limiting
 - [x] Lien vers outil d'export
 - [x] Remettre back sur ordi
 - [x] Message plus clair quand aucun anagramme trouvé

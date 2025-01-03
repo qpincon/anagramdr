@@ -147,8 +147,8 @@ def dict_intersect(d1, d2):
 
 
 mappings = defaultdict(int)
-regex_id = re.compile("[0-9]+\W+")
-regex_apostrophes = re.compile("(\W[ldnmst])\W+(\w)")
+regex_id = re.compile(r"[0-9]+\W+")
+regex_apostrophes = re.compile(r"(\W[ldnmst])\W+(\w)")
 two_grams = defaultdict(int)
 new_words = defaultdict(int)
 print("Tagging corpus...")
