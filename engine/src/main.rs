@@ -785,7 +785,7 @@ async fn main() {
     .and(warp::query::<QueryParams>())
     .map(move |q: QueryParams| {
             let query_input: String = decode(&q.input).expect("UTF-8").into_owned();
-            let before = Instant::now();
+            // let before = Instant::now();
             let results = index.find_anagrams_reverse(query_input, q.search_type, q.word_to_include);
             // println!("Elapsed time: {:.2?}", before.elapsed());
             match results {

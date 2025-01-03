@@ -13,7 +13,6 @@
 	import tippy from 'tippy.js';
 	import { debounce } from 'lodash-es';
 
-
 	let results = [];
 	let highlightedResult = null;
 
@@ -35,16 +34,16 @@
 
 	$: searchType = isSearchExact ? 'EXACT' : 'ROOT';
 
-	$: if($navigating) {
+	$: if ($navigating) {
 		const dest = $navigating.to;
 		if (dest.route.id.includes('resultats')) {
 			const params = Object.fromEntries(new URL(dest.url).searchParams);
 			loadPageDeb(params);
 		}
-	};
+	}
 
-	const loadPageDeb = debounce(loadPage, 200, {leading: true, trailing: false});
-	
+	const loadPageDeb = debounce(loadPage, 200, { leading: true, trailing: false });
+
 	onMount(() => {
 		const params = Object.fromEntries(new URLSearchParams(window.location.search));
 		loadPage(params);
@@ -56,7 +55,7 @@
 			interactive: true
 		});
 
-		 tippy(encoreTooltip, {
+		tippy(encoreTooltip, {
 			content:
 				"<span> Beaucoup d'anagrammes peuvent sortir d'une expression donnée, donc de l'aléatoire est utilisé pour les choisir.</span> <br/>  <span>Résultat : chaque recherche, c'est la surprise du chef !</span>",
 			theme: 'light',
@@ -153,7 +152,6 @@
 	function onScroll(e) {
 		displayBackToTop = window.scrollY > 1000;
 	}
-
 </script>
 
 <svelte:window on:keyup={onSearchKeyUp} on:scroll={onScroll} />
@@ -202,14 +200,14 @@
 	{:else}
 		<div class="results">
 			{#if results.length}
-			<div>{results.length} résultats</div>
-			{#each results as result}
-				<div on:click={changeSelectedResult(result)} class="result">
-					{result[0]}
-				</div>
-			{/each}
+				<div>{results.length} résultats</div>
+				{#each results as result}
+					<div on:click={changeSelectedResult(result)} class="result">
+						{result[0]}
+					</div>
+				{/each}
 			{:else}
-			<div> Aucun résultat trouvé pour ces lettres... <br/> Essayez une autre expression !</div>
+				<div>Aucun résultat trouvé pour ces lettres... <br /> Essayez une autre expression !</div>
 			{/if}
 		</div>
 	{/if}
@@ -229,16 +227,17 @@
 		{/if}
 	</div>
 
-	<div class="encore" class:visible={displayEncore} on:click={encore}>
-		Encore !
-		<div bind:this={encoreTooltip}><span> ? </span></div>
-	</div>
-
-	{#if displayBackToTop}
-		<div class="back-to-top" on:click={backToTop}>
-			<img src={upArrowIcon} />
+	<div class="bottom-left">
+		{#if displayBackToTop}
+			<div class="back-to-top" on:click={backToTop}>
+				<img src={upArrowIcon} />
+			</div>
+		{/if}
+		<div class="encore" class:visible={displayEncore} on:click={encore}>
+			Encore !
+			<div bind:this={encoreTooltip}><span> ? </span></div>
 		</div>
-	{/if}
+	</div>
 </main>
 
 <style lang="scss">
@@ -365,11 +364,22 @@
 			align-items: center;
 		}
 	}
-	.back-to-top {
+
+	.bottom-left {
 		z-index: 2;
 		position: sticky;
+		bottom: 20px;
+		left: 20px;
+		margin-bottom: 20px;
+		width: fit-content;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.back-to-top {
+		margin-bottom: 10px;
 		cursor: pointer;
-		bottom: 100px;
 		left: 50px;
 		background-color: white;
 		border-radius: 25px;
@@ -381,20 +391,16 @@
 	}
 
 	.encore {
-		z-index: 2;
-		position: sticky;
+		position: relative;
 		cursor: pointer;
-		bottom: 20px;
-		margin-bottom: 20px;
-		left: 20px;
 		width: max-content;
 		background-color: white;
 		padding: 20px;
 		border-radius: 25px;
 		border: 1px solid #917956;
-		visibility: hidden;
+		display: none;
 		&.visible {
-			visibility: visible;
+			display: block;
 		}
 		& > div {
 			position: absolute;
