@@ -46,7 +46,7 @@
 
 	onMount(() => {
 		const params = Object.fromEntries(new URLSearchParams(window.location.search));
-		loadPage(params);
+		loadPageDeb(params);
 		settingsContentElement.style.display = 'block';
 		settingsTooltipHandle = tippy(settingsImgElement, {
 			content: settingsContentElement,
