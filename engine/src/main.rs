@@ -447,7 +447,7 @@ impl Index {
             let index = words
             .iter()
             .find_position(|w| {
-                let searched = &self.sorted_letters[w.letters_sorted_range.start as usize..w.letters_sorted_range.end as usize];
+                let searched = &self.original_letters[w.letters_sorted_range.start as usize..w.letters_sorted_range.end as usize];
                 word_to_include.len() == searched.len() && searched.iter().zip(word_to_include.iter())
                 .all(|(a, b)| encoded_chars_equal(*a, *b, search_type))
             });
@@ -502,14 +502,17 @@ impl Index {
         let mut candidates: Vec<Matching> = vec![];
         let mut enough_found = false;
         let mut mode_include = false;
-        let mut sorted_to_include : Vec<u8> = vec![];
+        let mut processed_to_include : Vec<u8> = vec![];
         if word_to_include.len() > 0 {
             mode_include = true;
-            sorted_to_include = self.process_input(word_to_include);
+            processed_to_include = word_to_include.to_lowercase().chars()
+            .filter(|x| ALLOWED_CHARS.chars().any(|c| c == *x))
+            .map(char_to_u8)
+            .collect()
         }
         // let start = Instant::now();
 
-        let matchable_words_res = self.get_matchable_words(&sorted_input, search_type, &sorted_to_include);
+        let matchable_words_res = self.get_matchable_words(&sorted_input, search_type, &processed_to_include);
         if matchable_words_res.is_err() {
             return Err(matchable_words_res.unwrap_err());
         }

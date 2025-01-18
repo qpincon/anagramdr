@@ -6,7 +6,7 @@ export async function loadAnagrams({ input = "", searchType = "ROOT", wordToIncl
   if (wordToInclude.length) queryParams.append('word_to_include', wordToInclude);
   const res = await fetch(`engine/query?${queryParams.toString()}`);
   if (res.status >= 500) {
-    return {code: res.status, message: "Erreur serveur"};
+    return {code: res.status, message: "Erreur serveur. Désolé, essayez plus tard !"};
   }
   return await res.json();
 }
